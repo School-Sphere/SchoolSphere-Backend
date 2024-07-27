@@ -12,15 +12,9 @@ const authCtrl = {
     signIn: async (req, res, next) => {
         try {
             const { email, schoolCode, password } = req.body;
-            let user = await User.findOne({ email });
+            let user = await User.findOne({ email, schoolCode });
             if (!user) {
-                return next(new ErrorHandler(400, "No user found"));
-            }
-            if(user.schoolCode !== schoolCode){
-                return next(new ErrorHandler(401, "Incorrect school code"));
-            }
-            if (!isMatchSchool) {
-                return next(new ErrorHandler(401, "Incorrect school code"));
+                return next(new ErrorHandler(400, "No user found with the provided email and school code"));
             }
             const isMatch = await bcryptjs.compare(password, user.password);
             if (!isMatch) {
@@ -50,12 +44,9 @@ const authCtrl = {
     forgetPassword: async (req, res, next) => {
         try {
             const { email, schoolCode } = req.body;
-            let user = await User.findOne({ email });
+            let user = await User.findOne({ email, schoolCode });
             if (!user) {
-                return next(new ErrorHandler(400, "This email is not registered"));
-            }
-            if(user.schoolCode !== schoolCode){
-                return next(new ErrorHandler(401, "Incorrect school code"));
+                return next(new ErrorHandler(400, "This email is not registered for the given school code"));
             }
             const otp = Math.floor(1000 + Math.random() * 9000);
             let existingOtp = await Otp.findOne({ email });
@@ -91,12 +82,9 @@ const authCtrl = {
             if (otp != OTP.otp) {
                 return next(new ErrorHandler(400, "Invalid OTP"));
             }
-            let user = await User.findOne({ email });
+            let user = await User.findOne({ email, schoolCode });
             if (!user) {
                 return next(new ErrorHandler(400, "User not found"));
-            }
-            if (user.schoolCode !== schoolCode) {
-                return next(new ErrorHandler(401, "Incorrect school code"));
             }
             await Otp.deleteOne({ email });
             const token = jwt.sign({ id: user._id }, process.env.RESET, {
