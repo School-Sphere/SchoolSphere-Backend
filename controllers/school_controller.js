@@ -1,41 +1,81 @@
-const School = require("../models/school_model");
-const { ErrorHandler } = require("../middlewares/error");
+const Student = require("../models/student_model");
 const generatePassword = require("../utils/password_generator");
-const sendEmailSchool = require("../utils/school_mailer");
 const bcrypt = require("bcryptjs");
+const { ErrorHandler } = require("../middlewares/error");
+const sendEmailSchool = require("../utils/school_mailer");
+const Teacher = require("../models/teacher_model");
 
 const schoolCtrl = {
-    createSchool: async (req, res, next) => {
+    addStudent: async (req, res, next) => {
         try {
-            const { name, address, email } = req.body;
-            let existingSchool = await School.findOne({ email });
-            if (existingSchool) {
-                return next(new ErrorHandler(400, "School with the same email already exists"));
+            const { name, email, studentId, studentClass } = req.body;
+            const schoolCode = req.school.schoolCode;
+            let existingStudent = await Student.findOne({ email, schoolCode });
+            if (existingStudent) {
+                return next(new ErrorHandler(400, "Student email already exists in this school"));
             }
-            const schoolCount = await School.countDocuments();
-            const code = (schoolCount + 1).toString().padStart(4, '0');
+            existingStudent = await Student.findOne({ studentId, schoolCode });
+            if (existingStudent) {
+                return next(new ErrorHandler(400, "Student ID already exists in this school"));
+            }
             const password = generatePassword();
-            console.log(password);
             const hashedPassword = await bcrypt.hash(password, 8);
-            const newSchool = new School({
+            const newStudent = new Student({
                 name,
-                address,
                 email,
-                code,
                 password: hashedPassword,
+                role: 'student',
+                studentId,
+                studentClass: studentClass,
+                schoolCode
             });
-            await newSchool.save();
-            await sendEmailSchool(email, code, password, "School Created");
+
+            await newStudent.save();
+            await sendEmailSchool(email, schoolCode, password, "Student Added");
             res.status(201).json({
                 success: true,
-                message: "School created successfully",
-                data: newSchool,
+                message: "Student added successfully",
+                data: newStudent,
             });
-        } 
-        catch (e) {
-            next(e);
+        } catch (err) {
+            next(err);
         }
     },
-  };
-  
-  module.exports = schoolCtrl;
+
+    addTeacher: async (req, res, next) => {
+        try {
+            const { name, email, teacherId } = req.body;
+            const schoolCode = req.school.schoolCode;
+            let existingTeacher = await Teacher.findOne({ email, schoolCode });
+            if (existingTeacher) {
+                return next(new ErrorHandler(400, "Teacher email already exists in this school"));
+            }
+            existingTeacher = await Teacher.findOne({ teacherId, schoolCode });
+            if (existingTeacher) {
+                return next(new ErrorHandler(400, "Teacher ID already exists in this school"));
+            }
+            const password = generatePassword();
+            const hashedPassword = await bcrypt.hash(password, 8);
+            const newTeacher = new Teacher({
+                name,
+                email,
+                password: hashedPassword,
+                role: 'teacher',
+                teacherId,
+                schoolCode
+            });
+
+            await newTeacher.save();
+            await sendEmailSchool(email, schoolCode, password, "Teacher Added");
+            res.status(201).json({
+                success: true,
+                message: "Teacher added successfully",
+                data: newTeacher,
+            });
+        } catch (err) {
+            next(err);
+        }
+    }
+}
+
+module.exports = schoolCtrl;

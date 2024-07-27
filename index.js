@@ -5,7 +5,8 @@ const { errorMiddleware } = require("./middlewares/error");
 
 const {
   authRouter,
-  schoolRouter,
+  adminRouter,
+  schoolRouter
 } = require("./routes");
 
 require("dotenv").config();
@@ -16,6 +17,7 @@ const server = http.createServer(app);
 app.use(express.json());
 app.use(errorMiddleware);
 app.use(authRouter, errorMiddleware);
+app.use(adminRouter, errorMiddleware);
 app.use(schoolRouter, errorMiddleware);
 
 const PORT = process.env.PORT || 5000;

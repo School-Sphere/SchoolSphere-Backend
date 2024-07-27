@@ -14,7 +14,7 @@ const schoolSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  code: { 
+  schoolCode: { 
     type: String, 
     required: true, 
     unique: true 

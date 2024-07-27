@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const userSchema = require('./user').schema;
+const userSchema = require('./user_model').schema;
 
 const teacherSchema = new mongoose.Schema({
   ...userSchema.obj,
@@ -7,10 +7,6 @@ const teacherSchema = new mongoose.Schema({
     type: String, 
     required: true, 
     unique: true 
-  },
-  subject: { 
-    type: String, 
-    required: true 
   },
 });
 

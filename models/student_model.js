@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const userSchema = require('./user').schema;
+const userSchema = require('./user_model').schema;
 
 const studentSchema = new mongoose.Schema({
   ...userSchema.obj,
@@ -8,7 +8,7 @@ const studentSchema = new mongoose.Schema({
     required: true, 
     unique: true 
   },
-  class: { 
+  studentClass: { 
     type: String, 
     required: true 
   },
