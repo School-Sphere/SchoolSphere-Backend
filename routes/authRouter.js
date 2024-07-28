@@ -2,10 +2,10 @@ const express = require("express");
 const authCtrl = require("../controllers/auth_controller");
 const authRouter = express.Router();
 
-authRouter.post("/sign-in", authCtrl.signIn);
-authRouter.post("/forget-password", authCtrl.forgetPassword);
-authRouter.post("/verify-otp", authCtrl.verifyOtp);
-authRouter.post("/resend-otp", authCtrl.resendOtp);
-authRouter.post("/change-password", authCtrl.changePassword);
+authRouter.post("/student-sign-in", authCtrl.signInStudent);
+authRouter.post("/student-forget-password", authCtrl.forgetPasswordStudent);
+authRouter.post("/student-verify-otp", authCtrl.verifyOtpStudent);
+authRouter.post("/student-resend-otp", authCtrl.resendOtpStudent);
+authRouter.post("/student-change-password", authCtrl.changePasswordStudent);
 
 module.exports = authRouter;

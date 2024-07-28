@@ -12,6 +12,10 @@ const studentSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
+  attendance: { 
+    type: Array, 
+    default: [] 
+  },
 });
 
 module.exports = mongoose.model('Student', studentSchema);
