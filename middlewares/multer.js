@@ -5,8 +5,8 @@ const path = require("path");
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         const teacherId = req.body.teacherId || req.teacherId;
-        const uploadPath = path.join('public', teacherId, 'assignments');
-        
+        const uploadPath = path.join('public', 'assignments');
+
         fs.mkdir(uploadPath, { recursive: true }, (err) => {
             if (err) {
                 return cb(err);

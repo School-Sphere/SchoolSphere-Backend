@@ -1,6 +1,9 @@
 const Student = require("../models/student_model");
 const { ErrorHandler } = require("../middlewares/error");
+const uploadImage = require("../utils/cloudinary");
 const student_assignment_model = require("../models/student_assignment_model");
+const Teacher = require("../models/teacher_model");
+const sunmissionSchema = require("../models/assignment_submition_model");
 
 require("dotenv").config();
 
@@ -8,7 +11,7 @@ const studentCtrl = {
     getAttendance: async (req, res, next) => {
         try {
             const studentId = req.student._id;
-            const attendanceData = await Student.findById(studentId).select('attendance'); 
+            const attendanceData = await Student.findById(studentId).select('attendance');
             if (!attendanceData) {
                 return next(new ErrorHandler(404, "Attendance data not found"));
             }
@@ -16,7 +19,7 @@ const studentCtrl = {
                 success: true,
                 data: attendanceData
             });
-        } 
+        }
         catch (err) {
             next(err);
         }
@@ -59,20 +62,29 @@ const studentCtrl = {
 
     submitAssignment: async (req, res, next) => {
         try {
-            const studentId = req.student._id;
             const assignmentId = req.params.assignmentId;
-            const assignmentData = await Student.findById(studentId).select('assignments');
-            if (!assignmentData) {
-                return next(new ErrorHandler(404, "Assignment data not found"));
+            const studentId = req.student._id;
+            const submissionDate = Date.now();
+            const content = req.file.path;
+            const result = await uploadImage(content, studentId);
+            if (!result) {
+                return next(new ErrorHandler(500, "Error uploading the assignment"));
             }
-            const assignment = assignmentData.assignments.find(assignment => assignment._id == assignmentId);
-            if (!assignment) {
-                return next(new ErrorHandler(404, "Assignment not found"));
-            }
-            const { filePath } = req.file;
-            assignment.submitted = true;
-            assignment.submittedPath = filePath;
-            await assignmentData.save();
+            const newSubmission = new sunmissionSchema({
+                assignmentId,
+                studentId,
+                submissionDate,
+                content: result.url
+            });
+            await newSubmission.save();
+            const student = await Student.findById(studentId);
+            student.pendingAssignments = student.pendingAssignments.filter((assignment) => assignment != assignmentId);
+            student.submittedAssignments.push(assignmentId);
+            await student.save();
+            const assignAssignment = await student_assignment_model.findById(assignmentId);
+            const teacher = await Teacher.findById(assignAssignment.teacherId);
+            teacher.submissions.push(newSubmission._id);
+            await teacher.save();
             res.status(200).json({
                 success: true,
                 message: "Assignment submitted successfully"
