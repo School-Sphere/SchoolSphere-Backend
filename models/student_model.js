@@ -3,19 +3,27 @@ const userSchema = require('./user_model').schema;
 
 const studentSchema = new mongoose.Schema({
   ...userSchema.obj,
-  studentId: { 
-    type: String, 
-    required: true, 
-    unique: true 
+  studentId: {
+    type: String,
+    required: true,
+    unique: true
   },
-  studentClass: { 
-    type: String, 
-    required: true 
+  classId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Class'
   },
-  attendance: { 
-    type: Array, 
-    default: [] 
-  },
+  attendance: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Attendance'
+  }],
+  pendingAssignments: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'StudentAssignment'
+  }],
+  submittedAssignments: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'StudentAssignment'
+  }],
 });
 
 module.exports = mongoose.model('Student', studentSchema);

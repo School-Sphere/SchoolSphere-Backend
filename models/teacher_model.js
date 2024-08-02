@@ -8,6 +8,10 @@ const teacherSchema = new mongoose.Schema({
     required: true, 
     unique: true 
   },
+  assignments: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Assignment' 
+  }],
 });
 
 module.exports = mongoose.model('Teacher', teacherSchema);
