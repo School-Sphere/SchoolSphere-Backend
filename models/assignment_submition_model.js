@@ -13,6 +13,10 @@ const submissionSchema = new mongoose.Schema({
         type: Date,
         required: true
     },
+    lateSubmission: {
+        type: Boolean,
+        required: true
+    },
     content: {
         type: String,
         required: true

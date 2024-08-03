@@ -32,7 +32,7 @@ const schoolCtrl = {
                 password: hashedPassword,
                 role: 'student',
                 studentId,
-                classId: classId,
+                classId,
                 schoolCode
             });
             studentClass.students.push(newStudent._id);
@@ -95,9 +95,8 @@ const schoolCtrl = {
             }
             const myClass = await Class.findOne({ name, section });
             if (myClass) {
-                console.log('Class already exists ' + name + '-' + section);
-                return res.status(400).json({ success: false, message: 'Class already exists ' + name + '-' + section });
-            }   
+                return res.status(400).json({ success: false, message: 'Class ' + name + '-' + section + ' already exists' });
+            }
             const schoolCode = req.school.schoolCode;
             const newClass = new Class({
                 name,
@@ -108,7 +107,7 @@ const schoolCtrl = {
             await newClass.save();
             res.status(201).json({
                 success: true,
-                message: "Class " + newClass._id + " added successfully",
+                message: "Class " + name + "-" + section + " added successfully",
                 data: newClass,
             });
         }

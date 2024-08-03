@@ -3,7 +3,7 @@ const { ErrorHandler } = require("../middlewares/error");
 const uploadImage = require("../utils/cloudinary");
 const student_assignment_model = require("../models/student_assignment_model");
 const Teacher = require("../models/teacher_model");
-const sunmissionSchema = require("../models/assignment_submition_model");
+const submissionSchema = require("../models/assignment_submition_model");
 
 require("dotenv").config();
 
@@ -70,14 +70,19 @@ const studentCtrl = {
             if (!result) {
                 return next(new ErrorHandler(500, "Error uploading the assignment"));
             }
-            const newSubmission = new sunmissionSchema({
+            const lateSubmission = submissionDate > student_assignment_model.assignmentDueDate;
+            const newSubmission = new submissionSchema({
                 assignmentId,
                 studentId,
                 submissionDate,
+                lateSubmission,
                 content: result.url
             });
             await newSubmission.save();
             const student = await Student.findById(studentId);
+            if (!student.pendingAssignments.includes(assignmentId)) {
+                return next(new ErrorHandler(400, "Assignment already submitted"));
+            }
             student.pendingAssignments = student.pendingAssignments.filter((assignment) => assignment != assignmentId);
             student.submittedAssignments.push(assignmentId);
             await student.save();

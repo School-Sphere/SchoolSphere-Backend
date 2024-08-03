@@ -2,6 +2,10 @@ const mongoose = require('mongoose');
 const Assignment = require('./assignment_model').schema;
 
 const studentAssignmentSchema = new mongoose.Schema({
+    _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        auto: true,
+    },
     ...Assignment.obj,
     assignmentAssignedDate: {
         type: Date,

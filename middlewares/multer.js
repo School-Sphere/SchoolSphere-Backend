@@ -2,24 +2,27 @@ const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const teacherId = req.body.teacherId || req.teacherId;
-        const uploadPath = path.join('public', 'assignments');
+function createMulterUpload(reqPath, parameterName) {
+    const storage = multer.diskStorage({
+        destination: function (_req, _file, cb) {
+            const uploadPath = path.join('public', reqPath);
 
-        fs.mkdir(uploadPath, { recursive: true }, (err) => {
-            if (err) {
-                return cb(err);
-            }
-            cb(null, uploadPath);
-        });
-    },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = req.body.teacherId + '-' + Date.now() + '-' + file.originalname;
-        cb(null, file.fieldname + '-' + uniqueSuffix);
-    }
-});
+            fs.mkdir(uploadPath, { recursive: true }, (err) => {
+                if (err) {
+                    return cb(err);
+                }
+                cb(null, uploadPath);
+            });
+        },
+        filename: function (req, file, cb) {
+            const uniqueSuffix = req.body.teacherId + '-' + Date.now() + '-' + file.originalname;
+            cb(null, file.fieldname + '-' + uniqueSuffix);
+        }
+    });
 
-const upload = multer({ storage: storage });
+    const upload = multer({ storage: storage });
 
-module.exports = upload;
+    return upload.single(parameterName);
+}
+
+module.exports = createMulterUpload;
