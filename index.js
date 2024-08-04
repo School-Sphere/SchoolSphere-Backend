@@ -7,7 +7,8 @@ const {
   authRouter,
   adminRouter,
   schoolRouter,
-  studentRouter
+  studentRouter,
+  teacherRouter,
 } = require("./routes");
 
 require("dotenv").config();
@@ -16,11 +17,16 @@ const app = express();
 const http = require("http");
 const server = http.createServer(app);
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 app.use(errorMiddleware);
 app.use(authRouter, errorMiddleware);
 app.use(adminRouter, errorMiddleware);
 app.use(schoolRouter, errorMiddleware);
 app.use(studentRouter, errorMiddleware);
+app.use(teacherRouter, errorMiddleware);
+
+
+
 
 const PORT = process.env.PORT || 5000;
 

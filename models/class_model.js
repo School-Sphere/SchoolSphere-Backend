@@ -5,18 +5,24 @@ const classSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    section: {
+        type: String,
+        required: true,
+    },
     schoolCode: {
         type: String,
         required: true,
     },
     classTeacher: {
-        type: String,
-        required: true,
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Teacher",
     },
-    students: {
-        type: Array,
-        default: [],
-    },
+    students: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Student",
+        },
+    ],
     subjects: {
         type: Array,
         default: [],
