@@ -1,5 +1,5 @@
-const mongoose = require("mongoose");
-const Timetable = require("./timetable_model");
+const mongoose = require('mongoose');
+const Timetable = require('../models/timetable_model'); 
 
 const classSchema = new mongoose.Schema({
     name: {
@@ -29,8 +29,9 @@ const classSchema = new mongoose.Schema({
         default: [],
     },
     timetable: {
-        type: [Timetable],
+        type: [Timetable.schema],
     }
 });
-const Class = new mongoose.model("class", classSchema);
+
+const Class = mongoose.model("Class", classSchema);
 module.exports = Class;
