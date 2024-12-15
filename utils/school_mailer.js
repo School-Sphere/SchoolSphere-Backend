@@ -29,6 +29,7 @@ const sendmailSchool = async (email, schoolCode, password, subject) => {
             console.log(error);
         } 
         else {
+            console.log(password);
             console.log("Email sent:" + info.response);
         }
     });

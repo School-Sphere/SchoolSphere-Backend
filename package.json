@@ -12,6 +12,7 @@
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.4.0",
+    "crypto": "^1.0.1",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "http": "^0.0.1-security",
@@ -20,8 +21,13 @@
     "mongoose": "^8.5.1",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.14",
+<<<<<<< HEAD
     "nodemon": "^3.1.7",
     "socket.io": "^4.8.1",
+=======
+    "nodemon": "^3.1.4",
+    "razorpay": "^2.9.5",
+>>>>>>> 63bc3e69d61402822750dea10424335de9a5f8b5
     "uuid": "^10.0.0"
   }
 }
