@@ -6,7 +6,7 @@ const { ErrorHandler } = require("../middlewares/error");
 const { passwordSchema } = require("../utils/validator");
 const sendmail = require("../utils/mailer");
 const Student = require("../models/student_model");
-const UserModel = require('../models/user'); 
+const UserModel = require('../models/user_model'); 
 
 require("dotenv").config();
 
