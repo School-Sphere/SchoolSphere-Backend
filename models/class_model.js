@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const Timetable = require("./timetable_model");
 
 const classSchema = new mongoose.Schema({
     name: {
@@ -28,7 +29,7 @@ const classSchema = new mongoose.Schema({
         default: [],
     },
     timetable: {
-        type: String,
+        type: [Timetable],
     }
 });
 const Class = new mongoose.model("class", classSchema);

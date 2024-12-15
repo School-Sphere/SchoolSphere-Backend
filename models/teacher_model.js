@@ -8,6 +8,10 @@ const teacherSchema = new mongoose.Schema({
     required: true, 
     unique: true 
   },
+  class: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Class' 
+  },
   assignments: [{ 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Assignment' 

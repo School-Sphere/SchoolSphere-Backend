@@ -1,4 +1,6 @@
 const Student = require("../models/student_model");
+const Class = require("../models/class_model");
+const TimeTable = require("../models/timetable_model");
 const { ErrorHandler } = require("../middlewares/error");
 const uploadImage = require("../utils/cloudinary");
 const student_assignment_model = require("../models/student_assignment_model");
@@ -93,6 +95,27 @@ const studentCtrl = {
             res.status(200).json({
                 success: true,
                 message: "Assignment submitted successfully"
+            });
+        }
+        catch (err) {
+            next(err);
+        }
+    },
+
+    getTimeTable: async (req, res, next) => {
+        try {
+            const studentId = req.student._id;
+            const student = await Student.findById(studentId);
+            const classId = student.classId;
+            const studentClass = await Class.findById(classId);
+            const timeTable = studentClass.timetable;
+            const timeTableData = await TimeTable.findById(timeTable);
+            if (!timeTableData) {
+                return next(new ErrorHandler(404, "TimeTable not found"));
+            }
+            res.status(200).json({
+                success: true,
+                data: timeTable
             });
         }
         catch (err) {
