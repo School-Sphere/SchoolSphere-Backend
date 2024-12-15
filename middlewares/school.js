@@ -36,7 +36,7 @@ const schoolAuth = async (req, res, next) => {
 
             next();
         });
-    } 
+    }
     catch (err) {
         next(err);
     }

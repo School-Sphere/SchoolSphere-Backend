@@ -18,11 +18,6 @@ const userSchema = new mongoose.Schema({
     required: true, 
     enum: ['student', 'teacher'] 
   },
-  // school: { 
-  //   type: mongoose.Schema.Types.ObjectId, 
-  //   ref: 'School', 
-  //   required: true 
-  // }
   schoolCode: { 
     type: String, 
     required: true 

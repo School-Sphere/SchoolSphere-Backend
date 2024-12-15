@@ -6,6 +6,7 @@ const { ErrorHandler } = require("../middlewares/error");
 const { passwordSchema } = require("../utils/validator");
 const sendmail = require("../utils/mailer");
 const Student = require("../models/student_model");
+const UserModel = require('../models/user'); 
 
 require("dotenv").config();
 
@@ -58,7 +59,6 @@ const authCtrl = {
                 let newOtp = new Otp({
                     email,
                     otp,
-                    // createdAt: new Date()
                 });
                 await newOtp.save();
             }
@@ -123,7 +123,6 @@ const authCtrl = {
                 const newOtp = new Otp({
                     email,
                     otp,
-                    // createdAt: new Date()
                 });
                 await newOtp.save();
             }
@@ -213,7 +212,6 @@ const authCtrl = {
                 let newOtp = new Otp({
                     email,
                     otp,
-                    // createdAt: new Date()
                 });
                 await newOtp.save();
             }
@@ -317,6 +315,22 @@ const authCtrl = {
         } 
         catch (e) {
             next(e);
+        }
+    },
+
+    getUser: async (req, res, next) => {
+        try {
+            const token = req.headers.authorization.split(' ')[1];
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const user = await UserModel.findById(decoded.id);
+
+            if (!user) {
+                return res.status(404).json({ message: 'User not found' });
+            }
+
+            res.json(user);
+        } catch (error) {
+            next(error);
         }
     },
 };
