@@ -29,7 +29,12 @@ const classSchema = new mongoose.Schema({
     },
     timetable: {
         type: String,
-    }
+    },
+    chatRoom: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Room",
+        default: null,
+    },
 });
 const Class = new mongoose.model("class", classSchema);
 module.exports = Class;

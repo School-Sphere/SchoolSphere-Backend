@@ -12,5 +12,6 @@ authRouter.post("/teacher-forget-password", authCtrl.forgetPasswordTeacher);
 authRouter.post("/teacher-verify-otp", authCtrl.verifyOtpTeacher);
 authRouter.post("/teacher-resend-otp", authCtrl.resendOtpTeacher);
 authRouter.post("/teacher-change-password", authCtrl.changePasswordTeacher);
+authRouter.get("/user", authCtrl.getUser);
 
 module.exports = authRouter;

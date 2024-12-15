@@ -16,7 +16,6 @@ const adminCtrl = {
             const schoolCount = await School.countDocuments();
             const schoolCode = (schoolCount + 1).toString().padStart(4, '0');
             const password = generatePassword();
-            // console.log(password);
             const hashedPassword = await bcrypt.hash(password, 8);
             const newSchool = new School({
                 name,
