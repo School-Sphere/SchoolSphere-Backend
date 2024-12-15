@@ -139,7 +139,6 @@ const teacherCtrl = {
         }
     },
 
-
     getTimeTable: async (req, res, next) => {
         try {
             const teacherId = req.teacher._id;
@@ -151,6 +150,67 @@ const teacherCtrl = {
             res.json({ success: true, data: teacherClass.timetable });
         }
         catch{
+            next(err);
+        }
+    },
+      
+    markAllPresent: async (req, res, next) => {
+        try {
+            const { classId, date } = req.body;
+            if (!classId || !date) {
+                return res.status(400).json({ success: false, message: 'Please fill all the fields to mark all students present' });
+            }
+            const reqClass = await Class.findById(classId);
+            if (!reqClass) {
+                return res.json({ success: false, message: 'Class not found' });
+            }
+            const students = reqClass.students;
+            for (let i = 0; i < students.length; i++) {
+                const student = await studentSchema.findById(students[i]);
+                if (!student) {
+                    console.log('Student not found'+students[i]);
+                }
+                student.attendance.push({ date, status: 'Present' });
+                await student.save();
+            }
+            res.json({ success: true, message: 'Attendance marked successfully for ' + students.length + ' students of class ' + reqClass.name + '-' + reqClass.section });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    markPresent: async (req, res, next) => {
+        try {
+            const { studentId, date } = req.body;
+            if (!studentId || !date) {
+                return res.status(400).json({ success: false, message: 'Please fill all the fields to mark student present' });
+            }
+            const student = await studentSchema.findById(studentId);
+            if (!student) {
+                return res.json({ success: false, message: 'Student not found' });
+            }
+            student.attendance.push({ date, status: 'Present' });
+            await student.save();
+            res.json({ success: true, message: 'Attendance marked successfully for student ' + student.name });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    markAbsent: async (req, res, next) => {
+        try {
+            const { studentId, date } = req.body;
+            if (!studentId || !date) {
+                return res.status(400).json({ success: false, message: 'Please fill all the fields to mark student absent' });
+            }
+            const student = await studentSchema.findById(studentId);
+            if (!student) {
+                return res.json({ success: false, message: 'Student not found' });
+            }
+            student.attendance.push({ date, status: 'Absent' });
+            await student.save();
+            res.json({ success: true, message: 'Attendance marked successfully for student ' + student.name });
+        } catch (err) {
             next(err);
         }
     }

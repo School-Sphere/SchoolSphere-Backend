@@ -24,6 +24,10 @@ const studentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'StudentAssignment'
   }],
+  payments: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Payment', // Reference to the Payment model
+  }],
 });
 
 module.exports = mongoose.model('Student', studentSchema);

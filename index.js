@@ -9,6 +9,7 @@ const {
   schoolRouter,
   studentRouter,
   teacherRouter,
+  paymentRouter,
 } = require("./routes");
 
 require("dotenv").config();
@@ -24,6 +25,7 @@ app.use(adminRouter, errorMiddleware);
 app.use(schoolRouter, errorMiddleware);
 app.use(studentRouter, errorMiddleware);
 app.use(teacherRouter, errorMiddleware);
+app.use(paymentRouter, errorMiddleware);
 
 
 
