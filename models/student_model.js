@@ -26,7 +26,7 @@ const studentSchema = new mongoose.Schema({
   }],
   payments: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Payment', // Reference to the Payment model
+    ref: 'Payment',
   }],
 });
 

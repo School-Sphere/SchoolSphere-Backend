@@ -5,6 +5,9 @@ const teacherSchema = require('../models/teacher_model');
 const studentSchema = require('../models/student_model');
 const TimetableSchema = require('../models/timetable_model')
 const Class = require('../models/class_model');
+const express = require('express');
+const jwt = require('jsonwebtoken');
+const TeacherModel = require('../models/teacher_model');
 
 const teacherCtrl = {
     createAssignment: async (req, res, next) => {
@@ -213,8 +216,23 @@ const teacherCtrl = {
         } catch (err) {
             next(err);
         }
-    }
+    },
 
-}
+    getTeacher: async (req, res, next) => {
+        try {
+            const token = req.headers.authorization.split(' ')[1];
+            const decoded = jwt.verify(token, process.env.USER);
+            const teacher = await TeacherModel.findById(decoded.id);
+
+            if (!teacher) {
+                return res.status(404).json({ message: 'Teacher not found' });
+            }
+
+            res.json(teacher);
+        } catch (error) {
+            next(error);
+        }
+    },
+};
 
 module.exports = teacherCtrl;

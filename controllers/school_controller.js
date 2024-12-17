@@ -3,6 +3,7 @@ const Teacher = require("../models/teacher_model");
 const Class = require("../models/class_model");
 const generatePassword = require("../utils/password_generator");
 const bcrypt = require("bcryptjs");
+const User = require("../models/user_model");
 const { ErrorHandler } = require("../middlewares/error");
 const sendEmailSchool = require("../utils/school_mailer");
 
@@ -38,6 +39,17 @@ const schoolCtrl = {
             studentClass.students.push(newStudent._id);
             await studentClass.save();
             await newStudent.save();
+
+            // Create a user
+            const newUser = new User({
+                name,
+                email,
+                password: hashedPassword,
+                role: 'student',
+                schoolCode
+            });
+            await newUser.save();
+
             await sendEmailSchool(email, schoolCode, password, "Student Added");
             res.status(201).json({
                 success: true,
@@ -63,6 +75,7 @@ const schoolCtrl = {
             }
             const password = generatePassword();
             const hashedPassword = await bcrypt.hash(password, 8);
+
             const newTeacher = new Teacher({
                 name,
                 email,
@@ -71,8 +84,17 @@ const schoolCtrl = {
                 teacherId,
                 schoolCode
             });
-
             await newTeacher.save();
+
+            const newUser = new User({
+                name,
+                email,
+                password: hashedPassword,
+                role: 'teacher',
+                schoolCode
+            });
+            await newUser.save();
+
             await sendEmailSchool(email, schoolCode, password, "Teacher Added");
             res.status(201).json({
                 success: true,

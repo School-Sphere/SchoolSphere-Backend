@@ -6,6 +6,9 @@ const uploadImage = require("../utils/cloudinary");
 const student_assignment_model = require("../models/student_assignment_model");
 const Teacher = require("../models/teacher_model");
 const submissionSchema = require("../models/assignment_submition_model");
+const express = require('express');
+const jwt = require('jsonwebtoken');
+const StudentModel = require('../models/student_model');
 
 require("dotenv").config();
 
@@ -121,6 +124,23 @@ const studentCtrl = {
         catch (err) {
             next(err);
         }
-    }
+    },
+
+    getStudent: async (req, res, next) => {
+        try {
+            const token = req.headers.authorization.split(' ')[1];
+            const decoded = jwt.verify(token, process.env.USER);
+            const student = await StudentModel.findById(decoded.id);
+
+            if (!student) {
+                return res.status(404).json({ message: 'Student not found' });
+            }
+
+            res.json(student);
+        } catch (error) {
+            next(error);
+        }
+    },
 };
+
 module.exports = studentCtrl;
