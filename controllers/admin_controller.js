@@ -24,11 +24,11 @@ const adminCtrl = {
                 schoolCode,
                 password: hashedPassword,
             });
-            try{
+            try {
                 await sendEmailSchool(email, schoolCode, password, "School Created");
             }
-            catch(e){
-                res.status(500).json({"Could not send email. Please try again later": e});
+            catch (e) {
+                res.status(500).json({ "Could not send email. Please try again later": e });
                 return;
             }
             await newSchool.save();
@@ -44,8 +44,8 @@ const adminCtrl = {
     },
     signIn: async (req, res, next) => {
         try {
-            const { email, schoolCode, password } = req.body;
-            let school = await School.findOne({ email, schoolCode });
+            const { email, password } = req.body;
+            let school = await School.findOne({ email });
             if (!school) {
                 return next(new ErrorHandler(400, "No school found with the provided email and school code"));
             }
@@ -60,13 +60,8 @@ const adminCtrl = {
             res.json({
                 success: true,
                 message: "User signed successfully",
-                data: {
-                    token,
-                    name: school.name,
-                    email,
-                    schoolCode,
-                    address: school.address,
-                },
+                token: token,
+                data: school
             });
         }
         catch (e) {
