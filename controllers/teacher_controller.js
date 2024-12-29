@@ -62,7 +62,7 @@ const teacherCtrl = {
             if (!assignment) {
                 return res.status(404).json({ success: false, message: 'Assignment not found' });
             }
-            if(assignment.teacherId != req.teacher._id){
+            if (assignment.teacherId != req.teacher._id) {
                 return res.status(403).json({ success: false, message: 'You are not authorized to assign this assignment' });
             }
             const assignmentObject = assignment.toObject();
@@ -81,7 +81,7 @@ const teacherCtrl = {
             for (let i = 0; i < students.length; i++) {
                 const student = await studentSchema.findById(students[i]);
                 if (!student) {
-                    console.log('Student not found'+students[i]);
+                    console.log('Student not found' + students[i]);
                 }
                 student.pendingAssignments.push(newAssignment._id);
                 await student.save();
@@ -152,11 +152,11 @@ const teacherCtrl = {
             const teacherClass = await Class.findById(teacher.class);
             res.json({ success: true, data: teacherClass.timetable });
         }
-        catch{
+        catch {
             next(err);
         }
     },
-      
+
     markAllPresent: async (req, res, next) => {
         try {
             const { classId, date } = req.body;
@@ -171,7 +171,7 @@ const teacherCtrl = {
             for (let i = 0; i < students.length; i++) {
                 const student = await studentSchema.findById(students[i]);
                 if (!student) {
-                    console.log('Student not found'+students[i]);
+                    console.log('Student not found' + students[i]);
                 }
                 student.attendance.push({ date, status: 'Present' });
                 await student.save();
@@ -220,15 +220,7 @@ const teacherCtrl = {
 
     getTeacher: async (req, res, next) => {
         try {
-            const token = req.headers.authorization.split(' ')[1];
-            const decoded = jwt.verify(token, process.env.USER);
-            const teacher = await TeacherModel.findById(decoded.id);
-
-            if (!teacher) {
-                return res.status(404).json({ message: 'Teacher not found' });
-            }
-
-            res.json(teacher);
+            return res.json({ success: true, data: req.teacher });
         } catch (error) {
             next(error);
         }
