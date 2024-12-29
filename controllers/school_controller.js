@@ -81,8 +81,10 @@ const schoolCtrl = {
             const schoolCode = req.school.schoolCode;
 
             let existingTeacher = await Teacher.findOne({
-                $or: [{ email }, { teacherId }],
-                schoolCode
+                $or: [
+                    { email, schoolCode },
+                    { teacherId, schoolCode }
+                ]
             }).session(session);
             if (existingTeacher) {
                 if (existingTeacher.email === email) {
@@ -124,6 +126,9 @@ const schoolCtrl = {
             });
         } catch (err) {
             await session.abortTransaction();
+            if (err.code === 11000) {
+                return next(new ErrorHandler(400, "Teacher email or ID already exists in this school"));
+            }
             next(err);
         } finally {
             session.endSession();

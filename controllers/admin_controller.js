@@ -47,7 +47,7 @@ const adminCtrl = {
             const { email, password } = req.body;
             let school = await School.findOne({ email });
             if (!school) {
-                return next(new ErrorHandler(400, "No school found with the provided email and school code"));
+                return next(new ErrorHandler(400, "No school found with the provided email and password"));
             }
             const isMatch = await bcrypt.compare(password, school.password);
             if (!isMatch) {
