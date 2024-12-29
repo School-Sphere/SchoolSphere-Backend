@@ -140,17 +140,17 @@ const schoolCtrl = {
         session.startTransaction();
         try {
             const { name, section, classTeacher } = req.body;
+            const schoolCode = req.school.schoolCode;
             if (!name || !section || !classTeacher) {
                 return res.status(400).json({ success: false, message: 'Please fill all the fields to add a class' });
             }
             if (!await Teacher.findById(classTeacher).session(session)) {
                 return res.status(400).json({ success: false, message: 'Teacher not found' });
             }
-            const myClass = await Class.findOne({ name, section }).session(session);
+            const myClass = await Class.findOne({ name, section , schoolCode}).session(session);
             if (myClass) {
                 return res.status(400).json({ success: false, message: 'Class ' + name + '-' + section + ' already exists' });
             }
-            const schoolCode = req.school.schoolCode;
             const newClass = new Class({
                 name,
                 section,

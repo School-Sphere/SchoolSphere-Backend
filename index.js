@@ -1,7 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const { errorMiddleware } = require("./middlewares/error");
-const {initSocket} = require("./utils/sockets.js");
+const models = require("./models/models");
 
 const {
   authRouter,
@@ -37,9 +37,28 @@ app.use(paymentRouter, errorMiddleware);
 
 
 const PORT = process.env.PORT || 5000;
+const syncAllIndexes = async (models) => {
+  try {
+    for (const modelName in models) {
+      if (models.hasOwnProperty(modelName)) {
+        const model = models[modelName];
+        if (model && model.syncIndexes) {
+          // console.log(`Syncing indexes for: ${modelName}`);
+          await model.syncIndexes();
+        }
+      }
+    }
+    console.log("All indexes synced successfully.");
+  } catch (err) {
+    console.error("Error syncing indexes:", err);
+  }
+};
 
 mongoose.connect(process.env.DB).then(() => {
   console.log("connection is successful");
+
+
+  syncAllIndexes(models);
   server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });

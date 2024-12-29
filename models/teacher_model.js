@@ -19,7 +19,7 @@ const teacherSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Submission'
   }],
-  school: { type: mongoose.Schema.Types.ObjectId, ref: 'School' },
+  schoolCode: { type: String, required: true },
 });
 
 // Allow only one teacher per school with the same teacherId

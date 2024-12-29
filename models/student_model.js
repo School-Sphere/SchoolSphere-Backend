@@ -1,3 +1,4 @@
+const { required } = require('joi');
 const mongoose = require('mongoose');
 const userSchema = require('./user_model').schema;
 
@@ -6,7 +7,6 @@ const studentSchema = new mongoose.Schema({
   studentId: {
     type: String,
     required: true,
-    unique: true
   },
   classId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -28,7 +28,10 @@ const studentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Payment',
   }],
-  school: { type: mongoose.Schema.Types.ObjectId, ref: 'School' },
+  schoolCode: { type: String, required: true },
 });
+
+studentSchema.index({ schoolCode: 1, studentId: 1 }, { unique: true });
+
 
 module.exports = mongoose.model('Student', studentSchema);
