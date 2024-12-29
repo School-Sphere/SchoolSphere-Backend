@@ -19,7 +19,8 @@ const teacherSchema = new mongoose.Schema({
   submissions: [{ 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Submission' 
-  }]
+  }],
+  school: { type: mongoose.Schema.Types.ObjectId, ref: 'School' },
 });
 
 module.exports = mongoose.model('Teacher', teacherSchema);

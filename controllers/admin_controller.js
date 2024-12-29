@@ -2,6 +2,7 @@ const School = require("../models/school_model");
 const { ErrorHandler } = require("../middlewares/error");
 const generatePassword = require("../utils/password_generator");
 const sendEmailSchool = require("../utils/school_mailer");
+const uuid = require("uuid");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
@@ -13,8 +14,7 @@ const adminCtrl = {
             if (existingSchool) {
                 return next(new ErrorHandler(400, "School with the same email already exists"));
             }
-            const schoolCount = await School.countDocuments();
-            const schoolCode = (schoolCount + 1).toString().padStart(4, '0');
+            const schoolCode = uuid.v4();
             const password = generatePassword();
             const hashedPassword = await bcrypt.hash(password, 8);
             const newSchool = new School({
@@ -24,14 +24,20 @@ const adminCtrl = {
                 schoolCode,
                 password: hashedPassword,
             });
+            try{
+                await sendEmailSchool(email, schoolCode, password, "School Created");
+            }
+            catch(e){
+                res.status(500).json({"Could not send email. Please try again later": e});
+                return;
+            }
             await newSchool.save();
-            await sendEmailSchool(email, schoolCode, password, "School Created");
             res.status(201).json({
                 success: true,
                 message: "School created successfully",
                 data: newSchool,
             });
-        } 
+        }
         catch (e) {
             next(e);
         }
@@ -62,11 +68,11 @@ const adminCtrl = {
                     address: school.address,
                 },
             });
-        } 
+        }
         catch (e) {
             next(e);
         }
     },
 };
-  
+
 module.exports = adminCtrl;

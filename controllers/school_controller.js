@@ -9,24 +9,37 @@ const sendEmailSchool = require("../utils/school_mailer");
 
 const schoolCtrl = {
     addStudent: async (req, res, next) => {
+        const session = await mongoose.startSession();
+        session.startTransaction();
         try {
             const { name, email, studentId, classId } = req.body;
             const schoolCode = req.school.schoolCode;
-            let existingStudent = await Student.findOne({ email, schoolCode });
+    
+            // Check if student already exists
+            let existingStudent = await Student.findOne({ 
+                $or: [{ email }, { studentId }], 
+                schoolCode 
+            });
             if (existingStudent) {
-                return next(new ErrorHandler(400, "Student email already exists in this school"));
+                if (existingStudent.email === email) {
+                    return next(new ErrorHandler(400, "Student email already exists in this school"));
+                }
+                if (existingStudent.studentId === studentId) {
+                    return next(new ErrorHandler(400, "Student ID already exists in this school"));
+                }
             }
-            existingStudent = await Student.findOne({ studentId, schoolCode });
-            if (existingStudent) {
-                return next(new ErrorHandler(400, "Student ID already exists in this school"));
-            }
-            const password = generatePassword();
-            const hashedPassword = await bcrypt.hash(password, 8);
-
-            const studentClass = await Class.findById(classId);
+    
+            // Check if class exists in the same school
+            const studentClass = await Class.findOne({ _id: classId, schoolCode });
             if (!studentClass) {
-                return next(new ErrorHandler(400, "Class not found"));
+                return next(new ErrorHandler(400, "Class not found or does not belong to this school"));
             }
+    
+            // Generate password and hash it
+            const password = generatePassword();
+            const hashedPassword = await bcrypt.hash(password, parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 8);
+    
+            // Create new student
             const newStudent = new Student({
                 name,
                 email,
@@ -37,10 +50,12 @@ const schoolCtrl = {
                 schoolCode
             });
             studentClass.students.push(newStudent._id);
-            await studentClass.save();
-            await newStudent.save();
-
-            // Create a user
+    
+            // Save class and student in the transaction
+            await studentClass.save({ session });
+            await newStudent.save({ session });
+    
+            // Create user account
             const newUser = new User({
                 name,
                 email,
@@ -48,8 +63,13 @@ const schoolCtrl = {
                 role: 'student',
                 schoolCode
             });
-            await newUser.save();
-
+            await newUser.save({ session });
+    
+            // Commit transaction
+            await session.commitTransaction();
+            session.endSession();
+    
+            // Send notification email
             await sendEmailSchool(email, schoolCode, password, "Student Added");
             res.status(201).json({
                 success: true,
@@ -57,9 +77,12 @@ const schoolCtrl = {
                 data: newStudent,
             });
         } catch (err) {
+            await session.abortTransaction();
+            session.endSession();
             next(err);
         }
     },
+    
 
     addTeacher: async (req, res, next) => {
         try {

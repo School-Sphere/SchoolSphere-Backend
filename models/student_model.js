@@ -28,6 +28,7 @@ const studentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Payment',
   }],
+  school: { type: mongoose.Schema.Types.ObjectId, ref: 'School' },
 });
 
 module.exports = mongoose.model('Student', studentSchema);
