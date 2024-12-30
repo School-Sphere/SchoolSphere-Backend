@@ -40,7 +40,8 @@ const messageSchema = Joi.object({
         is: 'private',
         then: Joi.required()
     }),
-    type: Joi.string().valid('group', 'private').required()
+    type: Joi.string().valid('group', 'private').required(),
+    priority: Joi.string().valid('normal', 'high').default('normal')
 });
 
 const roomSchema = Joi.object({
@@ -50,7 +51,7 @@ const roomSchema = Joi.object({
 // Error Codes and Messages
 const ERRORS = {
     AUTH: {
-        code: 'AUTH_ERROR',
+            code: 'AUTH_ERROR',
         NO_TOKEN: 'No authentication token provided',
         INVALID_TOKEN: 'Invalid authentication token',
         USER_NOT_FOUND: 'User not found',
@@ -63,7 +64,11 @@ const ERRORS = {
         code: 'ROOM_ERROR',
         NOT_FOUND: 'Room not found',
         UNAUTHORIZED: 'Unauthorized access to room',
-        INVALID_ID: 'Invalid room ID format'
+        INVALID_ID: 'Invalid room ID format',
+        ALREADY_EXISTS: 'Room already exists',
+        MAX_CAPACITY: 'Room has reached maximum capacity',
+        INVALID_TYPE: 'Invalid room type',
+        INACTIVE: 'Room is no longer active'
     },
     MESSAGE: {
         code: 'MESSAGE_ERROR',
@@ -94,9 +99,9 @@ const SOCKET_CONFIG = {
 
 // Rate Limiting Configuration
 const RATE_LIMIT_CONFIG = {
-    windowMs: 60000,
-    maxRequests: 100,
-    blockDuration: 300000
+    windowMs: 30000,
+    maxRequests: 150,
+    blockDuration: 180000
 };
 
 // Event Documentation
@@ -114,7 +119,8 @@ const EVENT_DOCS = {
     [EVENTS.GROUP_MESSAGE]: {
         params: {
             roomId: 'MongoDB ObjectId of the group room',
-            content: 'Text content of the message'
+            content: 'Text content of the message',
+            priority: 'Message priority (normal/high)'
         },
         response: {
             _id: 'MongoDB ObjectId of the created message',
@@ -123,7 +129,8 @@ const EVENT_DOCS = {
                 username: 'Username of the sender'
             },
             content: 'Text content of the message',
-            timestamp: 'ISO timestamp of message creation'
+            timestamp: 'ISO timestamp of message creation',
+            priority: 'Priority level of the message'
         }
     },
     [EVENTS.PRIVATE_MESSAGE]: {

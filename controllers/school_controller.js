@@ -45,7 +45,7 @@ const schoolCtrl = {
             if (studentClass.chatRoomId) {
                 const room = await Room.findById(studentClass.chatRoomId);
                 if (room) {
-                    await room.addMember(newUser._id, 'student');
+                    await room.addMember(newStudent._id, 'student');
                 }
             }
 

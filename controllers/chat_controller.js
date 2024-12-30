@@ -2,7 +2,7 @@ const { ErrorHandler } = require("../middlewares/error");
 const Message = require("../models/message_model");
 const Room = require("../models/room_model");
 const Joi = require("joi");
-
+const User = require("../models/user_model");
 // Validation schemas
 const roomSchema = Joi.object({
     name: Joi.string().required().min(3).max(50),
@@ -57,10 +57,19 @@ const chatCtrl = {
                 return next(new ErrorHandler(400, error.details[0].message));
             }
 
+            const user = await User.findById(req.user._id);
+            if (!user) {
+                return next(new ErrorHandler(404, "User not found"));
+            }
+
+            if(user.role !== 'teacher'){
+                return next(new ErrorHandler(403, "You are not authorized to create a room"));
+            }
+
             const room = new Room({
                 ...value,
-                creator: req.user._id,
-                members: [req.user._id]
+                members: [{user: req.user._id, role: user.role}],
+                schoolCode: user.schoolCode
             });
 
             await room.save();
@@ -105,9 +114,15 @@ const chatCtrl = {
     deleteRoom: async (req, res, next) => {
         try {
             const { id } = req.params;
+            const user = await User.findById(req.user._id);
+            if (!user) {
+                return next(new ErrorHandler(404, "User not found"));
+            }
+            if(!room.isTeacher(user._id)){
+                return next(new ErrorHandler(403, "You are not authorized to delete a room"));
+            }
             const room = await Room.findOneAndDelete({ 
                 _id: id, 
-                creator: req.user._id 
             });
 
             if (!room) {
@@ -143,9 +158,12 @@ const chatCtrl = {
             if (room.members.includes(userId)) {
                 return next(new ErrorHandler(400, "User is already a member"));
             }
+            const user = await User.findById(userId);
+            if (!user) {
+                return next(new ErrorHandler(404, "User not found"));
+            }
 
-            room.members.push(userId);
-            await room.save();
+            await room.addMember(userId, user.role);
 
             res.json({
                 success: true,
@@ -174,10 +192,12 @@ const chatCtrl = {
                 return next(new ErrorHandler(400, "User is not a member"));
             }
 
-            room.members = room.members.filter(
-                member => member.toString() !== userId
-            );
-            await room.save();
+            const user = await User.findById(userId);
+            if (!user) {
+                return next(new ErrorHandler(404, "User not found"));
+            }
+
+            await room.removeMember(userId);
 
             res.json({
                 success: true,

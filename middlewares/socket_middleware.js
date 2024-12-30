@@ -4,13 +4,16 @@ const { ErrorHandler } = require('./error');
 const Student = require('../models/student_model');
 const Teacher = require('../models/teacher_model');
 const authConfig = require('../config/auth_config');
-const { ERRORS } = require('../config/socket_events');
+const { ERRORS, EVENTS, RATE_LIMIT_CONFIG } = require('../config/socket_events');
+const { handleChatError, createChatError } = require('../utils/chat_helpers');
 
 class SocketErrorHandler extends Error {
-  constructor(code, message) {
+  constructor(code, message, type = 'socket') {
     super(message);
     this.code = code;
-    this.event = 'error';
+    this.event = EVENTS.ERROR;
+    this.type = type;
+    this.timestamp = new Date().toISOString();
   }
 }
 
@@ -18,8 +21,9 @@ class SocketErrorHandler extends Error {
 const createSocketMiddleware = (options = {}) => {
   const rateLimiter = new Map();
   const rateLimit = {
-    windowMs: options.rateLimitWindow || authConfig.rateLimit.windowMs,
-    maxRequests: options.maxRequests || authConfig.rateLimit.maxRequests
+    windowMs: options.rateLimitWindow || RATE_LIMIT_CONFIG.windowMs,
+    maxRequests: options.maxRequests || RATE_LIMIT_CONFIG.maxRequests,
+    blockDuration: RATE_LIMIT_CONFIG.blockDuration
   };
 
 const socketRateLimiter = (socket, next) => {
@@ -43,23 +47,29 @@ const socketRateLimiter = (socket, next) => {
   }
 
   if (clientData.count >= rateLimit.maxRequests) {
-    return next(new SocketErrorHandler(ERRORS.AUTH.code, authConfig.errors.rateLimiting.tooManyRequests));
+    const error = createChatError(
+      ERRORS.AUTH.code,
+      ERRORS.AUTH.RATE_LIMIT_EXCEEDED
+    );
+    return next(error);
   }
 
   clientData.count++;
   next();
 };
 
-const checkPermission = (role, permission) => {
-  return authConfig.roles[role] && authConfig.roles[role][permission];
+const checkPermission = (socket, eventName) => {
+  const { role } = socket;
+  const event = EVENTS[eventName];
+  return authConfig.roles[role] && authConfig.roles[role][event];
 };
 
 const socketAuth = async (socket, next) => {
   try {
     const token = socket.handshake.auth.token;
-
+    
     if (!token) {
-      return next(new SocketErrorHandler(ERRORS.AUTH.code, authConfig.errors.auth.noToken));
+      throw createChatError(ERRORS.AUTH.code, ERRORS.AUTH.NO_TOKEN);
     }
 
     const cleanToken = token.replace(/^Bearer\s+/, '');
@@ -68,7 +78,7 @@ const socketAuth = async (socket, next) => {
       ...authConfig.tokenVerification,
     }, async (err, payload) => {
       if (err) {
-        return next(new SocketErrorHandler(ERRORS.AUTH.code, authConfig.errors.auth.invalidToken));
+        throw createChatError(ERRORS.AUTH.code, ERRORS.AUTH.INVALID_TOKEN);
       }
 
       const { id, role } = payload;
@@ -82,14 +92,14 @@ const socketAuth = async (socket, next) => {
         }
 
         if (!user) {
-          return next(new SocketErrorHandler(ERRORS.AUTH.code, authConfig.errors.auth.userNotFound));
+          throw createChatError(ERRORS.AUTH.code, ERRORS.AUTH.USER_NOT_FOUND);
         }
 
         socket.user = user;
         socket.role = role;
         next();
       } catch (dbError) {
-        next(new SocketErrorHandler(ERRORS.AUTH.code, 'Database operation failed'));
+        throw createChatError(ERRORS.AUTH.code, 'Database operation failed');
       }
     });
   } catch (error) {
@@ -106,10 +116,8 @@ const socketAuth = async (socket, next) => {
   };
 
   const socketErrorHandler = (err, socket) => {
-    socket.emit('error', {
-      code: err.code || ERRORS.AUTH.code,
-      message: err.message || 'Internal server error'
-    });
+    const errorResponse = handleChatError(err);
+    socket.emit(EVENTS.ERROR, errorResponse);
   };
 
   // Cleanup rate limiter data for disconnected clients

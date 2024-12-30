@@ -13,10 +13,6 @@ const messageSchema = new mongoose.Schema({
     minlength: [1, 'Message content cannot be empty'],
     maxlength: [2000, 'Message content cannot exceed 2000 characters']
   },
-  timestamp: {
-    type: Date,
-    default: Date.now
-  },
   type: {
     type: String,
     required: true,
@@ -27,7 +23,7 @@ const messageSchema = new mongoose.Schema({
     ref: 'Room',
     required: true
   }
-});
+}, { timestamps: true });
 
 // Create indexes for efficient querying
 messageSchema.index({ roomId: 1, timestamp: 1 });

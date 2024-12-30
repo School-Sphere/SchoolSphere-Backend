@@ -84,9 +84,14 @@ roomSchema.statics.createClassRoom = async function(name, teacherId, schoolCode)
   });
 };
 
+//creating private rooms
 roomSchema.statics.createPrivateRoom = async function(members, schoolCode) {
+  const teacher = members.find(m => m.role === 'teacher');
+  const otherUser = members.find(m => m.role !== 'teacher');
+  const roomName = `${teacher.userId}-${otherUser.userId}`;
+
   return this.create({
-    name: 'Private Chat',
+    name: roomName,
     type: 'private',
     members: members.map(m => ({ user: m.userId, role: m.role })),
     schoolCode

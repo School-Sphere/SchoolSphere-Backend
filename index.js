@@ -1,7 +1,8 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const { errorMiddleware } = require("./middlewares/error");
-const {initSocket} = require("./utils/sockets.js");
+const SocketManager = require("./server/services/SocketManager");
+const { SOCKET_CONFIG } = require("./config/socket_events");
 
 const {
   authRouter,
@@ -33,14 +34,27 @@ app.use(teacherRouter, errorMiddleware);
 app.use(paymentRouter, errorMiddleware);
 
 
-// initSocket(server);
-
 
 const PORT = process.env.PORT || 5000;
 
-mongoose.connect(process.env.DB).then(() => {
-  console.log("connection is successful");
-  server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+mongoose.connect(process.env.DB)
+  .then(() => {
+    console.log("Database connection successful");
+    
+    try {
+      // Initialize Socket.IO
+      SocketManager.initialize(server);
+      console.log("Socket.IO initialized successfully");
+      
+      server.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+      });
+    } catch (error) {
+      console.error("Failed to initialize Socket.IO:", error);
+      process.exit(1);
+    }
+  })
+  .catch((error) => {
+    console.error("Database connection failed:", error);
+    process.exit(1);
   });
-});
