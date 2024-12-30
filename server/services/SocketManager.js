@@ -24,7 +24,7 @@ class SocketManager {
     }
 
      initialize(server) {
-        this.io = new Server(server, SOCKET_CONFIG);
+        this.io = new Server(server);
         this.setupMiddleware();
         this.setupEventHandlers();
         return this.io;
