@@ -12,6 +12,39 @@ const studentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Class'
   },
+  dob: {
+    type: Date,
+  },
+  doa: {
+    type: Date,
+  },
+  session: {
+    type: String,
+  },
+  fatherName: {
+    type: String,
+  },
+  motherName: {
+    type: String,
+  },
+  parentEmail: {
+    type: String,
+  },
+  address: {
+    type: String,
+  },
+  gender: {
+    type: String,
+  },
+  parentContact: {
+    type: String,
+  },
+  fatherOccupation: {
+    type: String,
+  },
+  motherOccupation: {
+    type: String,
+  },
   attendance: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Attendance'
