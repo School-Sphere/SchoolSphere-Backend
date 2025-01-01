@@ -1,9 +1,9 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const { errorMiddleware } = require("./middlewares/error");
+const models = require("./models/models");
 const SocketManager = require("./server/services/SocketManager");
 const { SOCKET_CONFIG } = require("./config/socket_events");
-
 const {
   authRouter,
   adminRouter,
@@ -36,7 +36,22 @@ app.use(paymentRouter, errorMiddleware);
 
 
 const PORT = process.env.PORT || 5000;
-
+const syncAllIndexes = async (models) => {
+  try {
+    for (const modelName in models) {
+      if (models.hasOwnProperty(modelName)) {
+        const model = models[modelName];
+        if (model && model.syncIndexes) {
+          // console.log(`Syncing indexes for: ${modelName}`);
+          await model.syncIndexes();
+        }
+      }
+    }
+    console.log("All indexes synced successfully.");
+  } catch (err) {
+    console.error("Error syncing indexes:", err);
+  }
+};
 mongoose.connect(process.env.DB)
   .then(() => {
     console.log("Database connection successful");

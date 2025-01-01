@@ -322,8 +322,8 @@ const authCtrl = {
         try {
 
             const token = req.headers.authorization.split(' ')[1];
-            console.log(req.headers.authorization);
             const decoded = jwt.verify(token, process.env.USER);
+            console.log(decoded);
             const user = await UserModel.findById(decoded.id);
             if (!user) {
                 return res.status(404).json({ message: 'User not found' });

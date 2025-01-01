@@ -128,15 +128,10 @@ const studentCtrl = {
 
     getStudent: async (req, res, next) => {
         try {
-            const token = req.headers.authorization.split(' ')[1];
-            const decoded = jwt.verify(token, process.env.USER);
-            const student = await StudentModel.findById(decoded.id);
-
-            if (!student) {
-                return res.status(404).json({ message: 'Student not found' });
-            }
-
-            res.json(student);
+            return res.status(200).json({
+                success: true,
+                data: req.student
+            });
         } catch (error) {
             next(error);
         }

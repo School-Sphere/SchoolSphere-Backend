@@ -1,3 +1,4 @@
+const { required } = require('joi');
 const mongoose = require('mongoose');
 const userSchema = require('./user_model').schema;
 
@@ -6,11 +7,43 @@ const studentSchema = new mongoose.Schema({
   studentId: {
     type: String,
     required: true,
-    unique: true
   },
   classId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Class'
+  },
+  dob: {
+    type: Date,
+  },
+  doa: {
+    type: Date,
+  },
+  session: {
+    type: String,
+  },
+  fatherName: {
+    type: String,
+  },
+  motherName: {
+    type: String,
+  },
+  parentEmail: {
+    type: String,
+  },
+  address: {
+    type: String,
+  },
+  gender: {
+    type: String,
+  },
+  parentContact: {
+    type: String,
+  },
+  fatherOccupation: {
+    type: String,
+  },
+  motherOccupation: {
+    type: String,
   },
   attendance: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -28,6 +61,10 @@ const studentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Payment',
   }],
+  schoolCode: { type: String, required: true },
 });
+
+studentSchema.index({ schoolCode: 1, studentId: 1 }, { unique: true });
+
 
 module.exports = mongoose.model('Student', studentSchema);
