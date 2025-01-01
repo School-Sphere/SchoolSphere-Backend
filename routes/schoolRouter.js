@@ -7,4 +7,4 @@ schoolRouter.post("/add-student", schoolAuth, schoolCtrl.addStudent);
 schoolRouter.post("/add-class", schoolAuth, schoolCtrl.addClass);
 schoolRouter.post("/add-teacher", schoolAuth, schoolCtrl.addTeacher);
 
-module.exports = schoolRouter;
+    module.exports = schoolRouter;
