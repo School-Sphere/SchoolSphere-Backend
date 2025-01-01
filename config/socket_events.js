@@ -83,19 +83,19 @@ const ERRORS = {
 };
 
 // Socket Configuration
-// const SOCKET_CONFIG = {
-//     pingTimeout: 60000,
-//     pingInterval: 25000,
-//     reconnection: true,
-//     reconnectionAttempts: 5,
-//     reconnectionDelay: 1000,
-//     reconnectionDelayMax: 5000,
-//     randomizationFactor: 0.5,
-//     timeout: 20000,
-//     authTimeout: 30000,
-//     tokenRefreshInterval: 3600000,
-//     sessionTimeout: 1800000
-// };
+const SOCKET_CONFIG = {
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    randomizationFactor: 0.5,
+    timeout: 20000,
+    authTimeout: 30000,
+    tokenRefreshInterval: 3600000,
+    sessionTimeout: 1800000
+};
 
 // Rate Limiting Configuration
 const RATE_LIMIT_CONFIG = {
