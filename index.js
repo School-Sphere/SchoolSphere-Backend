@@ -2,7 +2,8 @@ const express = require("express");
 const mongoose = require("mongoose");
 const { errorMiddleware } = require("./middlewares/error");
 const models = require("./models/models");
-
+const SocketManager = require("./server/services/SocketManager");
+const { SOCKET_CONFIG } = require("./config/socket_events");
 const {
   authRouter,
   adminRouter,
@@ -33,8 +34,6 @@ app.use(teacherRouter, errorMiddleware);
 app.use(paymentRouter, errorMiddleware);
 
 
-// initSocket(server);
-
 
 const PORT = process.env.PORT || 5000;
 const syncAllIndexes = async (models) => {
@@ -53,13 +52,24 @@ const syncAllIndexes = async (models) => {
     console.error("Error syncing indexes:", err);
   }
 };
-
-mongoose.connect(process.env.DB).then(() => {
-  console.log("connection is successful");
-
-
-  syncAllIndexes(models);
-  server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+mongoose.connect(process.env.DB)
+  .then(() => {
+    console.log("Database connection successful");
+    
+    try {
+      // Initialize Socket.IO
+      SocketManager.initialize(server);
+      console.log("Socket.IO initialized successfully");
+      
+      server.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+      });
+    } catch (error) {
+      console.error("Failed to initialize Socket.IO:", error);
+      process.exit(1);
+    }
+  })
+  .catch((error) => {
+    console.error("Database connection failed:", error);
+    process.exit(1);
   });
-});

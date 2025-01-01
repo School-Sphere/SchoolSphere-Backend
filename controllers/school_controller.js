@@ -7,6 +7,7 @@ const User = require("../models/user_model");
 const { ErrorHandler } = require("../middlewares/error");
 const mongoose = require("mongoose");
 const sendEmailSchool = require("../utils/school_mailer");
+const Room = require("../models/room_model");
 
 const schoolCtrl = {
     addStudent: async (req, res, next) => {
@@ -46,6 +47,14 @@ const schoolCtrl = {
             studentClass.students.push(newStudent._id);
             await studentClass.save({ session });
             await newStudent.save({ session });
+
+            // Add student to class chat room
+            if (studentClass.chatRoomId) {
+                const room = await Room.findById(studentClass.chatRoomId);
+                if (room) {
+                    await room.addMember(newStudent._id, 'student');
+                }
+            }
 
             // Create a user
             const newUser = new User({
@@ -157,6 +166,13 @@ const schoolCtrl = {
                 schoolCode,
                 classTeacher
             });
+            const room = await Room.createClassRoom(
+                `${name}-${section}`,
+                classTeacher,
+                schoolCode
+            );
+            
+            newClass.chatRoomId = room._id;
             await newClass.save({ session });
 
             await session.commitTransaction();

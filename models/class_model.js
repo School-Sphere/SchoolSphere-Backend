@@ -30,6 +30,10 @@ const classSchema = new mongoose.Schema({
     },
     timetable: {
         type: [Timetable.schema],
+    },
+    chatRoomId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Room'
     }
 });
 
