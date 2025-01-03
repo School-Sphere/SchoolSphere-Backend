@@ -19,6 +19,7 @@ teacherRouter.get("/teacher/classes/:classId", teacherAuth, teacherCtrl.getClass
 teacherRouter.post("/class/:classId/announcement", teacherAuth, teacherCtrl.createClassAnnouncement);
 teacherRouter.get("/class/:classId/announcements", teacherAuth, teacherCtrl.getClassAnnouncements);
 teacherRouter.get("/announcements", teacherAuth, teacherCtrl.getTeacherAnnouncements);
+teacherRouter.get("/events", teacherAuth, teacherCtrl.getTeacherEvents);
 
 
 

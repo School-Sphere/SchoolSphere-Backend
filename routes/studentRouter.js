@@ -11,5 +11,7 @@ studentRouter.get("/get-timetable", studentAuth, studentCtrl.getTimeTable);
 studentRouter.get("/student", studentCtrl.getStudent);
 studentRouter.get("/announcements", studentAuth, studentCtrl.getStudentAnnouncements);
 
+studentRouter.get("/events", studentAuth, studentCtrl.getStudentEvents);
+
 
 module.exports = studentRouter;

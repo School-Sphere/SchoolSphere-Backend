@@ -1,5 +1,6 @@
 const Student = require("../models/student_model");
 const { Announcement, ANNOUNCEMENT_SCOPE, TARGET_AUDIENCE } = require('../models/announcement_model');
+const { Event } = require('../models/event_model');
 const Class = require("../models/class_model");
 const TimeTable = require("../models/timetable_model");
 const { ErrorHandler } = require("../middlewares/error");
@@ -186,6 +187,48 @@ const studentCtrl = {
             res.status(200).json({
                 success: true,
                 data: announcements,
+                pagination: {
+                    total,
+                    page: parseInt(page),
+                    pages: Math.ceil(total / limit)
+                }
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getStudentEvents: async (req, res, next) => {
+        try {
+            const { startDate, endDate, page = 1, limit = 10 } = req.query;
+
+            // Build query for events in student's school
+            const query = {
+                schoolCode: req.student.schoolCode
+            };
+
+            // Add date range filter if provided
+            if (startDate && endDate) {
+                query.time = {
+                    $gte: new Date(startDate),
+                    $lte: new Date(endDate)
+                };
+            }
+
+            const skip = (page - 1) * limit;
+
+            // Fetch events with pagination
+            const events = await Event.find(query)
+                .populate('createdBy', 'name email')
+                .sort({ time: 1 })
+                .skip(skip)
+                .limit(parseInt(limit));
+
+            const total = await Event.countDocuments(query);
+
+            res.status(200).json({
+                success: true,
+                data: events,
                 pagination: {
                     total,
                     page: parseInt(page),

@@ -9,6 +9,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const TeacherModel = require('../models/teacher_model');
 const { Announcement, ANNOUNCEMENT_SCOPE, TARGET_AUDIENCE } = require('../models/announcement_model');
+const { Event } = require('../models/event_model');
 
 const teacherCtrl = {
     createAssignment: async (req, res, next) => {
@@ -408,6 +409,43 @@ const teacherCtrl = {
             res.json({
                 success: true,
                 data: announcements,
+                pagination: {
+                    total,
+                    page: parseInt(page),
+                    pages: Math.ceil(total / limit)
+                }
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getTeacherEvents: async (req, res, next) => {
+        try {
+            const { page = 1, limit = 10, startDate, endDate } = req.query;
+            const schoolCode = req.teacher.schoolCode;
+
+            const query = { schoolCode };
+
+            if (startDate && endDate) {
+                query.time = {
+                    $gte: new Date(startDate),
+                    $lte: new Date(endDate)
+                };
+            }
+
+            const skip = (page - 1) * limit;
+
+            const events = await Event.find(query)
+                .sort({ time: 1 })
+                .skip(skip)
+                .limit(parseInt(limit));
+
+            const total = await Event.countDocuments(query);
+
+            res.json({
+                success: true,
+                data: events,
                 pagination: {
                     total,
                     page: parseInt(page),

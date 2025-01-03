@@ -9,6 +9,7 @@ const mongoose = require("mongoose");
 const sendEmailSchool = require("../utils/school_mailer");
 const Room = require("../models/room_model");
 const { Announcement, ANNOUNCEMENT_SCOPE, TARGET_AUDIENCE } = require("../models/announcement_model");
+const { Event } = require("../models/event_model");
 
 const schoolCtrl = {
     addStudent: async (req, res, next) => {
@@ -261,6 +262,77 @@ const schoolCtrl = {
             res.status(200).json({
                 success: true,
                 data: announcements
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    createEvent: async (req, res, next) => {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        try {
+            const { title, description, time, venue } = req.body;
+            const schoolCode = req.school.schoolCode;
+
+            if (!title || !description || !time || !venue) {
+                return next(new ErrorHandler(400, "Please provide all required fields"));
+            }
+
+            const event = new Event({
+                title,
+                description,
+                time: new Date(time),
+                venue,
+                createdBy: req.school._id,
+                schoolCode
+            });
+
+            await event.save({ session });
+
+            await session.commitTransaction();
+            res.status(201).json({
+                success: true,
+                message: "Event created successfully",
+                data: event
+            });
+        } catch (err) {
+            await session.abortTransaction();
+            next(err);
+        } finally {
+            session.endSession();
+        }
+    },
+
+    getEvents: async (req, res, next) => {
+        try {
+            const schoolCode = req.school.schoolCode;
+            const { page = 1, limit = 10, startDate, endDate } = req.query;
+
+            const query = { schoolCode };
+
+            if (startDate && endDate) {
+                query.time = {
+                    $gte: new Date(startDate),
+                    $lte: new Date(endDate)
+                };
+            }
+
+            const options = {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                sort: { time: 1 },
+                populate: {
+                    path: 'createdBy',
+                    select: 'name email'
+                }
+            };
+
+            const events = await Event.paginate(query, options);
+
+            res.status(200).json({
+                success: true,
+                data: events
             });
         } catch (err) {
             next(err);
