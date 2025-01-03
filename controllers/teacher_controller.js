@@ -8,6 +8,9 @@ const Class = require('../models/class_model');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const TeacherModel = require('../models/teacher_model');
+const { Announcement, ANNOUNCEMENT_SCOPE, TARGET_AUDIENCE } = require('../models/announcement_model');
+const CourseMaterial = require('../models/course_material_model');
+const { Event } = require('../models/event_model');
 
 const teacherCtrl = {
     createAssignment: async (req, res, next) => {
@@ -225,6 +228,378 @@ const teacherCtrl = {
             next(error);
         }
     },
+
+    getTeacherClasses: async (req, res, next) => {
+        try {
+            const teacherId = req.teacher._id;
+            if (!teacherId) {
+                return res.status(400).json({ success: false, message: 'Teacher ID is required' });
+            }
+
+            const classes = await Class.find({
+                $or: [
+                    { classTeacher: teacherId },
+                    { 'subjects.teacher': teacherId }
+                ]
+            }).select('name section students subjects timetable');
+
+            res.json({ success: true, data: classes });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getClassDetails: async (req, res, next) => {
+        try {
+            const teacherId = req.teacher._id;
+            const { classId } = req.params;
+
+            if (!classId) {
+                return res.status(400).json({ success: false, message: 'Class ID is required' });
+            }
+
+            const classDetails = await Class.findById(classId)
+                .populate('students', 'name rollNumber email')
+                .populate('classTeacher', 'name email')
+                .select('name section students subjects timetable');
+
+            if (!classDetails) {
+                return res.status(404).json({ success: false, message: 'Class not found' });
+            }
+
+            // Verify if teacher has access to this class
+            if (classDetails.classTeacher._id.toString() !== teacherId.toString() && 
+                !classDetails.subjects.some(subject => subject.teacher && subject.teacher.toString() === teacherId.toString())) {
+                return res.status(403).json({ success: false, message: 'You do not have access to this class' });
+            }
+
+            res.json({ success: true, data: classDetails });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    createClassAnnouncement: async (req, res, next) => {
+        try {
+            const { title, description, classId } = req.body;
+            const teacherId = req.teacher._id;
+
+            if (!title || !description || !classId) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Title, description and class ID are required' 
+                });
+            }
+
+            // Verify teacher's association with the class
+            const classDetails = await Class.findById(classId);
+            if (!classDetails) {
+                return res.status(404).json({ success: false, message: 'Class not found' });
+            }
+
+            if (classDetails.classTeacher.toString() !== teacherId.toString() && 
+                !classDetails.subjects.some(subject => subject.teacher && 
+                subject.teacher.toString() === teacherId.toString())) {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: 'You are not authorized to create announcements for this class' 
+                });
+            }
+
+            const announcement = new Announcement({
+                title,
+                description,
+                createdBy: teacherId,
+                creatorModel: 'Teacher',
+                targetAudience: TARGET_AUDIENCE.ALL,
+                scope: ANNOUNCEMENT_SCOPE.CLASS,
+                targetClass: classId,
+                schoolCode: req.teacher.schoolCode
+            });
+
+            await announcement.save();
+
+            res.status(201).json({
+                success: true,
+                message: 'Announcement created successfully',
+                data: announcement
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getClassAnnouncements: async (req, res, next) => {
+        try {
+            const { classId } = req.params;
+            const { startDate, endDate, page = 1, limit = 10 } = req.query;
+
+            const query = {
+                scope: ANNOUNCEMENT_SCOPE.CLASS,
+                targetClass: classId
+            };
+
+            if (startDate && endDate) {
+                query.createdAt = {
+                    $gte: new Date(startDate),
+                    $lte: new Date(endDate)
+                };
+            }
+
+            const skip = (page - 1) * limit;
+
+            const announcements = await Announcement.find(query)
+                .populate('createdBy', 'name email')
+                .populate('targetClass', 'name section')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(parseInt(limit));
+
+            const total = await Announcement.countDocuments(query);
+
+            res.json({
+                success: true,
+                data: announcements,
+                pagination: {
+                    total,
+                    page: parseInt(page),
+                    pages: Math.ceil(total / limit)
+                }
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getTeacherAnnouncements: async (req, res, next) => {
+        try {
+            const teacherId = req.teacher._id;
+            const { page = 1, limit = 10 } = req.query;
+
+            // Get teacher's classes
+            const teacherClasses = await Class.find({
+                $or: [
+                    { classTeacher: teacherId },
+                    { 'subjects.teacher': teacherId }
+                ]
+            }).select('_id');
+
+            const classIds = teacherClasses.map(c => c._id);
+
+            const query = {
+                $or: [
+                    { scope: ANNOUNCEMENT_SCOPE.SCHOOL },
+                    {
+                        scope: ANNOUNCEMENT_SCOPE.CLASS,
+                        targetClass: { $in: classIds }
+                    }
+                ]
+            };
+
+            const skip = (page - 1) * limit;
+
+            const announcements = await Announcement.find(query)
+                .populate('createdBy', 'name email')
+                .populate('targetClass', 'name section')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(parseInt(limit));
+
+            const total = await Announcement.countDocuments(query);
+
+            res.json({
+                success: true,
+                data: announcements,
+                pagination: {
+                    total,
+                    page: parseInt(page),
+                    pages: Math.ceil(total / limit)
+                }
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getTeacherEvents: async (req, res, next) => {
+        try {
+            const { page = 1, limit = 10, startDate, endDate } = req.query;
+            const schoolCode = req.teacher.schoolCode;
+
+            const query = { schoolCode };
+
+            if (startDate && endDate) {
+                query.time = {
+                    $gte: new Date(startDate),
+                    $lte: new Date(endDate)
+                };
+            }
+
+            const skip = (page - 1) * limit;
+
+            const events = await Event.find(query)
+                .sort({ time: 1 })
+                .skip(skip)
+                .limit(parseInt(limit));
+
+            const total = await Event.countDocuments(query);
+
+            res.json({
+                success: true,
+                data: events,
+                pagination: {
+                    total,
+                    page: parseInt(page),
+                    pages: Math.ceil(total / limit)
+                }
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+    uploadCourseMaterial: async (req, res, next) => {
+        try {
+            const { title, description, classId, subjectId } = req.body;
+            const teacherId = req.teacher._id;
+            const filePath = req.file?.path;
+
+            if (!title || !description || !classId || !subjectId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Title, description, class ID and subject ID are required'
+                });
+            }
+
+            // Verify teacher's access to class and subject
+            const classDetails = await Class.findById(classId);
+            if (!classDetails) {
+                return res.status(404).json({ success: false, message: 'Class not found' });
+            }
+
+            const hasAccess = classDetails.subjects.some(subject => 
+                subject._id.toString() === subjectId && 
+                subject.teacher.toString() === teacherId.toString()
+            );
+
+            if (!hasAccess) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You are not authorized to upload materials for this subject'
+                });
+            }
+
+            let fileUrl = null;
+            if (filePath) {
+                const result = await uploadImage(filePath, `materials/${teacherId}`);
+                if (!result) {
+                    return res.status(500).json({ success: false, message: 'Error uploading file' });
+                }
+                fileUrl = result.url;
+            }
+
+            const courseMaterial = new CourseMaterial({
+                title,
+                description,
+                fileUrl,
+                teacherId,
+                classId,
+                subjectId,
+                schoolCode: req.teacher.schoolCode
+            });
+
+            await courseMaterial.save();
+
+            res.status(201).json({
+                success: true,
+                message: 'Course material uploaded successfully',
+                data: courseMaterial
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getCourseMaterials: async (req, res, next) => {
+        try {
+            const { classId, subjectId } = req.query;
+            const teacherId = req.teacher._id;
+
+            const query = { teacherId, schoolCode: req.teacher.schoolCode };
+            if (classId) query.classId = classId;
+            if (subjectId) query.subjectId = subjectId;
+
+            const materials = await CourseMaterial.find(query)
+                .sort({ createdAt: -1 });
+
+            res.json({
+                success: true,
+                data: materials
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    updateCourseMaterial: async (req, res, next) => {
+        try {
+            const { materialId } = req.params;
+            const { title, description } = req.body;
+            const teacherId = req.teacher._id;
+
+            const material = await CourseMaterial.findById(materialId);
+            if (!material) {
+                return res.status(404).json({ success: false, message: 'Course material not found' });
+            }
+
+            if (material.teacherId.toString() !== teacherId.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You are not authorized to update this material'
+                });
+            }
+
+            material.title = title || material.title;
+            material.description = description || material.description;
+
+            await material.save();
+
+            res.json({
+                success: true,
+                message: 'Course material updated successfully',
+                data: material
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    deleteCourseMaterial: async (req, res, next) => {
+        try {
+            const { materialId } = req.params;
+            const teacherId = req.teacher._id;
+
+            const material = await CourseMaterial.findById(materialId);
+            if (!material) {
+                return res.status(404).json({ success: false, message: 'Course material not found' });
+            }
+
+            if (material.teacherId.toString() !== teacherId.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You are not authorized to delete this material'
+                });
+            }
+
+            await material.remove();
+
+            res.json({
+                success: true,
+                message: 'Course material deleted successfully'
+            });
+        } catch (err) {
+            next(err);
+        }
+    }
 };
 
 module.exports = teacherCtrl;

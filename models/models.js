@@ -8,6 +8,7 @@ const Timetable = require('./timetable_model');
 const Assignment = require('./assignment_model');
 const StudentAssignment = require('./student_assignment_model');
 const AssignmentSubmission = require('./assignment_submition_model');
+const CourseMaterial = require('./course_material_model');
 
 Models = [
     Student,
@@ -19,7 +20,8 @@ Models = [
     Timetable,
     Assignment,
     StudentAssignment,
-    AssignmentSubmission
+    AssignmentSubmission,
+    CourseMaterial
 ];
 
 module.exports = Models;

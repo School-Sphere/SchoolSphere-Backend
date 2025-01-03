@@ -2,7 +2,27 @@ const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 
-function createMulterUpload(reqPath, parameterName) {
+const ALLOWED_FILE_TYPES = {
+    courseMaterial: ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.txt', '.xls', '.xlsx'],
+    assignment: ['.pdf', '.doc', '.docx', '.txt']
+};
+
+const MAX_FILE_SIZES = {
+    courseMaterial: 25 * 1024 * 1024, // 25MB for course materials
+    assignment: 10 * 1024 * 1024 // 10MB for assignments
+};
+function createMulterUpload(reqPath, parameterName, options = {}) {
+    const { fileType = 'assignment' } = options;
+
+    const fileFilter = (req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase();
+        if (ALLOWED_FILE_TYPES[fileType].includes(ext)) {
+            cb(null, true);
+        } else {
+            cb(new Error(`Only ${ALLOWED_FILE_TYPES[fileType].join(', ')} files are allowed for ${fileType}`));
+        }
+    };
+
     const storage = multer.diskStorage({
         destination: function (_req, _file, cb) {
             const uploadPath = path.join('public', reqPath);
@@ -20,7 +40,13 @@ function createMulterUpload(reqPath, parameterName) {
         }
     });
 
-    const upload = multer({ storage: storage });
+    const upload = multer({
+        storage: storage,
+        fileFilter: fileFilter,
+        limits: {
+            fileSize: MAX_FILE_SIZES[fileType]
+        }
+    });
 
     return upload.single(parameterName);
 }

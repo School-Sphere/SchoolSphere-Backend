@@ -64,6 +64,16 @@ const studentSchema = new mongoose.Schema({
   schoolCode: { type: String, required: true },
 });
 
+studentSchema.virtual('submittedAssignmentDetails', {
+  ref: 'Submission',
+  localField: '_id',
+  foreignField: 'studentId',
+  options: { sort: { submissionDate: -1 } },
+  match: function() {
+    return { studentId: this._id };
+  }
+});
+
 studentSchema.index({ schoolCode: 1, studentId: 1 }, { unique: true });
 
 

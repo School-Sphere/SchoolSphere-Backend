@@ -7,4 +7,10 @@ schoolRouter.post("/add-student", schoolAuth, schoolCtrl.addStudent);
 schoolRouter.post("/add-class", schoolAuth, schoolCtrl.addClass);
 schoolRouter.post("/add-teacher", schoolAuth, schoolCtrl.addTeacher);
 
-    module.exports = schoolRouter;
+schoolRouter.post("/announcement", schoolAuth, schoolCtrl.createSchoolAnnouncement);
+schoolRouter.get("/announcements", schoolAuth, schoolCtrl.getSchoolAnnouncements);
+
+schoolRouter.post("/events", schoolAuth, schoolCtrl.createEvent);
+schoolRouter.get("/events", schoolAuth, schoolCtrl.getEvents);
+
+module.exports = schoolRouter;

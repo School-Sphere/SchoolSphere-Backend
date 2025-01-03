@@ -37,6 +37,10 @@ const teacherSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Submission'
   }],
+  courseMaterials: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'CourseMaterial'
+  }],
   schoolCode: { type: String, required: true },
 });
 
