@@ -20,7 +20,10 @@ teacherRouter.post("/class/:classId/announcement", teacherAuth, teacherCtrl.crea
 teacherRouter.get("/class/:classId/announcements", teacherAuth, teacherCtrl.getClassAnnouncements);
 teacherRouter.get("/announcements", teacherAuth, teacherCtrl.getTeacherAnnouncements);
 teacherRouter.get("/events", teacherAuth, teacherCtrl.getTeacherEvents);
-
+teacherRouter.post("/upload-course-material", teacherAuth, createMulterUpload('Materials', 'content'), teacherCtrl.uploadCourseMaterial);
+teacherRouter.get("/course-materials", teacherAuth, teacherCtrl.getCourseMaterials);
+teacherRouter.put("/course-material/:materialId", teacherAuth, teacherCtrl.updateCourseMaterial);
+teacherRouter.delete("/course-material/:materialId", teacherAuth, teacherCtrl.deleteCourseMaterial);
 
 
 

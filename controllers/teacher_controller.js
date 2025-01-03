@@ -9,6 +9,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const TeacherModel = require('../models/teacher_model');
 const { Announcement, ANNOUNCEMENT_SCOPE, TARGET_AUDIENCE } = require('../models/announcement_model');
+const CourseMaterial = require('../models/course_material_model');
 const { Event } = require('../models/event_model');
 
 const teacherCtrl = {
@@ -456,6 +457,149 @@ const teacherCtrl = {
             next(err);
         }
     },
+    uploadCourseMaterial: async (req, res, next) => {
+        try {
+            const { title, description, classId, subjectId } = req.body;
+            const teacherId = req.teacher._id;
+            const filePath = req.file?.path;
+
+            if (!title || !description || !classId || !subjectId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Title, description, class ID and subject ID are required'
+                });
+            }
+
+            // Verify teacher's access to class and subject
+            const classDetails = await Class.findById(classId);
+            if (!classDetails) {
+                return res.status(404).json({ success: false, message: 'Class not found' });
+            }
+
+            const hasAccess = classDetails.subjects.some(subject => 
+                subject._id.toString() === subjectId && 
+                subject.teacher.toString() === teacherId.toString()
+            );
+
+            if (!hasAccess) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You are not authorized to upload materials for this subject'
+                });
+            }
+
+            let fileUrl = null;
+            if (filePath) {
+                const result = await uploadImage(filePath, `materials/${teacherId}`);
+                if (!result) {
+                    return res.status(500).json({ success: false, message: 'Error uploading file' });
+                }
+                fileUrl = result.url;
+            }
+
+            const courseMaterial = new CourseMaterial({
+                title,
+                description,
+                fileUrl,
+                teacherId,
+                classId,
+                subjectId,
+                schoolCode: req.teacher.schoolCode
+            });
+
+            await courseMaterial.save();
+
+            res.status(201).json({
+                success: true,
+                message: 'Course material uploaded successfully',
+                data: courseMaterial
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getCourseMaterials: async (req, res, next) => {
+        try {
+            const { classId, subjectId } = req.query;
+            const teacherId = req.teacher._id;
+
+            const query = { teacherId, schoolCode: req.teacher.schoolCode };
+            if (classId) query.classId = classId;
+            if (subjectId) query.subjectId = subjectId;
+
+            const materials = await CourseMaterial.find(query)
+                .sort({ createdAt: -1 });
+
+            res.json({
+                success: true,
+                data: materials
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    updateCourseMaterial: async (req, res, next) => {
+        try {
+            const { materialId } = req.params;
+            const { title, description } = req.body;
+            const teacherId = req.teacher._id;
+
+            const material = await CourseMaterial.findById(materialId);
+            if (!material) {
+                return res.status(404).json({ success: false, message: 'Course material not found' });
+            }
+
+            if (material.teacherId.toString() !== teacherId.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You are not authorized to update this material'
+                });
+            }
+
+            material.title = title || material.title;
+            material.description = description || material.description;
+
+            await material.save();
+
+            res.json({
+                success: true,
+                message: 'Course material updated successfully',
+                data: material
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    deleteCourseMaterial: async (req, res, next) => {
+        try {
+            const { materialId } = req.params;
+            const teacherId = req.teacher._id;
+
+            const material = await CourseMaterial.findById(materialId);
+            if (!material) {
+                return res.status(404).json({ success: false, message: 'Course material not found' });
+            }
+
+            if (material.teacherId.toString() !== teacherId.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You are not authorized to delete this material'
+                });
+            }
+
+            await material.remove();
+
+            res.json({
+                success: true,
+                message: 'Course material deleted successfully'
+            });
+        } catch (err) {
+            next(err);
+        }
+    }
 };
 
 module.exports = teacherCtrl;
