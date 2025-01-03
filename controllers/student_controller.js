@@ -239,6 +239,53 @@ const studentCtrl = {
             next(err);
         }
     },
+
+    getSubmittedAssignments: async (req, res, next) => {
+        try {
+            const studentId = req.student._id;
+            const { startDate, endDate, page = 1, limit = 10 } = req.query;
+
+            // Build base query for submissions
+            const query = {
+                studentId: studentId
+            };
+
+            // Add date range filter if provided
+            if (startDate && endDate) {
+                query.submissionDate = {
+                    $gte: new Date(startDate),
+                    $lte: new Date(endDate)
+                };
+            }
+
+            const skip = (page - 1) * limit;
+
+            // Fetch submissions with pagination and join with assignment details
+            const submissions = await submissionSchema.find(query)
+                .populate({
+                    path: 'assignmentId',
+                    model: 'StudentAssignment',
+                    select: 'name assignmentDueDate description'
+                })
+                .sort({ submissionDate: -1 })
+                .skip(skip)
+                .limit(parseInt(limit));
+
+            const total = await submissionSchema.countDocuments(query);
+
+            res.status(200).json({
+                success: true,
+                data: submissions,
+                pagination: {
+                    total,
+                    page: parseInt(page),
+                    pages: Math.ceil(total / limit)
+                }
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
 };
 
 module.exports = studentCtrl;
