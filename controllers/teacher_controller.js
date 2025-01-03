@@ -8,6 +8,7 @@ const Class = require('../models/class_model');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const TeacherModel = require('../models/teacher_model');
+const { Announcement, ANNOUNCEMENT_SCOPE, TARGET_AUDIENCE } = require('../models/announcement_model');
 
 const teacherCtrl = {
     createAssignment: async (req, res, next) => {
@@ -223,6 +224,198 @@ const teacherCtrl = {
             return res.json({ success: true, data: req.teacher });
         } catch (error) {
             next(error);
+        }
+    },
+
+    getTeacherClasses: async (req, res, next) => {
+        try {
+            const teacherId = req.teacher._id;
+            if (!teacherId) {
+                return res.status(400).json({ success: false, message: 'Teacher ID is required' });
+            }
+
+            const classes = await Class.find({
+                $or: [
+                    { classTeacher: teacherId },
+                    { 'subjects.teacher': teacherId }
+                ]
+            }).select('name section students subjects timetable');
+
+            res.json({ success: true, data: classes });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getClassDetails: async (req, res, next) => {
+        try {
+            const teacherId = req.teacher._id;
+            const { classId } = req.params;
+
+            if (!classId) {
+                return res.status(400).json({ success: false, message: 'Class ID is required' });
+            }
+
+            const classDetails = await Class.findById(classId)
+                .populate('students', 'name rollNumber email')
+                .populate('classTeacher', 'name email')
+                .select('name section students subjects timetable');
+
+            if (!classDetails) {
+                return res.status(404).json({ success: false, message: 'Class not found' });
+            }
+
+            // Verify if teacher has access to this class
+            if (classDetails.classTeacher._id.toString() !== teacherId.toString() && 
+                !classDetails.subjects.some(subject => subject.teacher && subject.teacher.toString() === teacherId.toString())) {
+                return res.status(403).json({ success: false, message: 'You do not have access to this class' });
+            }
+
+            res.json({ success: true, data: classDetails });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    createClassAnnouncement: async (req, res, next) => {
+        try {
+            const { title, description, classId } = req.body;
+            const teacherId = req.teacher._id;
+
+            if (!title || !description || !classId) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Title, description and class ID are required' 
+                });
+            }
+
+            // Verify teacher's association with the class
+            const classDetails = await Class.findById(classId);
+            if (!classDetails) {
+                return res.status(404).json({ success: false, message: 'Class not found' });
+            }
+
+            if (classDetails.classTeacher.toString() !== teacherId.toString() && 
+                !classDetails.subjects.some(subject => subject.teacher && 
+                subject.teacher.toString() === teacherId.toString())) {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: 'You are not authorized to create announcements for this class' 
+                });
+            }
+
+            const announcement = new Announcement({
+                title,
+                description,
+                createdBy: teacherId,
+                creatorModel: 'Teacher',
+                targetAudience: TARGET_AUDIENCE.ALL,
+                scope: ANNOUNCEMENT_SCOPE.CLASS,
+                targetClass: classId,
+                schoolCode: req.teacher.schoolCode
+            });
+
+            await announcement.save();
+
+            res.status(201).json({
+                success: true,
+                message: 'Announcement created successfully',
+                data: announcement
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getClassAnnouncements: async (req, res, next) => {
+        try {
+            const { classId } = req.params;
+            const { startDate, endDate, page = 1, limit = 10 } = req.query;
+
+            const query = {
+                scope: ANNOUNCEMENT_SCOPE.CLASS,
+                targetClass: classId
+            };
+
+            if (startDate && endDate) {
+                query.createdAt = {
+                    $gte: new Date(startDate),
+                    $lte: new Date(endDate)
+                };
+            }
+
+            const skip = (page - 1) * limit;
+
+            const announcements = await Announcement.find(query)
+                .populate('createdBy', 'name email')
+                .populate('targetClass', 'name section')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(parseInt(limit));
+
+            const total = await Announcement.countDocuments(query);
+
+            res.json({
+                success: true,
+                data: announcements,
+                pagination: {
+                    total,
+                    page: parseInt(page),
+                    pages: Math.ceil(total / limit)
+                }
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getTeacherAnnouncements: async (req, res, next) => {
+        try {
+            const teacherId = req.teacher._id;
+            const { page = 1, limit = 10 } = req.query;
+
+            // Get teacher's classes
+            const teacherClasses = await Class.find({
+                $or: [
+                    { classTeacher: teacherId },
+                    { 'subjects.teacher': teacherId }
+                ]
+            }).select('_id');
+
+            const classIds = teacherClasses.map(c => c._id);
+
+            const query = {
+                $or: [
+                    { scope: ANNOUNCEMENT_SCOPE.SCHOOL },
+                    {
+                        scope: ANNOUNCEMENT_SCOPE.CLASS,
+                        targetClass: { $in: classIds }
+                    }
+                ]
+            };
+
+            const skip = (page - 1) * limit;
+
+            const announcements = await Announcement.find(query)
+                .populate('createdBy', 'name email')
+                .populate('targetClass', 'name section')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(parseInt(limit));
+
+            const total = await Announcement.countDocuments(query);
+
+            res.json({
+                success: true,
+                data: announcements,
+                pagination: {
+                    total,
+                    page: parseInt(page),
+                    pages: Math.ceil(total / limit)
+                }
+            });
+        } catch (err) {
+            next(err);
         }
     },
 };

@@ -8,6 +8,7 @@ const { ErrorHandler } = require("../middlewares/error");
 const mongoose = require("mongoose");
 const sendEmailSchool = require("../utils/school_mailer");
 const Room = require("../models/room_model");
+const { Announcement, ANNOUNCEMENT_SCOPE, TARGET_AUDIENCE } = require("../models/announcement_model");
 
 const schoolCtrl = {
     addStudent: async (req, res, next) => {
@@ -186,6 +187,83 @@ const schoolCtrl = {
             next(e);
         } finally {
             session.endSession();
+        }
+    },
+
+    createSchoolAnnouncement: async (req, res, next) => {
+        try {
+            const { title, description, targetAudience } = req.body;
+            const schoolCode = req.school.schoolCode;
+
+            if (!title || !description || !targetAudience) {
+                return next(new ErrorHandler(400, "Please provide all required fields"));
+            }
+
+            if (!Object.values(TARGET_AUDIENCE).includes(targetAudience)) {
+                return next(new ErrorHandler(400, "Invalid target audience"));
+            }
+
+            const announcement = new Announcement({
+                title,
+                description,
+                createdBy: req.school._id,
+                creatorModel: 'School',
+                targetAudience,
+                scope: ANNOUNCEMENT_SCOPE.SCHOOL,
+                schoolCode
+            });
+
+            await announcement.save();
+
+            res.status(201).json({
+                success: true,
+                message: "Announcement created successfully",
+                data: announcement
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getSchoolAnnouncements: async (req, res, next) => {
+        try {
+            const schoolCode = req.school.schoolCode;
+            const { page = 1, limit = 10, startDate, endDate, targetAudience } = req.query;
+
+            const query = { 
+                schoolCode,
+                scope: ANNOUNCEMENT_SCOPE.SCHOOL
+            };
+
+            if (startDate && endDate) {
+                query.createdAt = {
+                    $gte: new Date(startDate),
+                    $lte: new Date(endDate)
+                };
+            }
+
+            if (targetAudience && Object.values(TARGET_AUDIENCE).includes(targetAudience)) {
+                query.targetAudience = targetAudience;
+            }
+
+            const options = {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                sort: { createdAt: -1 },
+                populate: {
+                    path: 'createdBy',
+                    select: 'name email'
+                }
+            };
+
+            const announcements = await Announcement.paginate(query, options);
+
+            res.status(200).json({
+                success: true,
+                data: announcements
+            });
+        } catch (err) {
+            next(err);
         }
     }
 };

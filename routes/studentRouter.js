@@ -9,6 +9,7 @@ studentRouter.get("/get-assignment/:assignmentId", studentAuth, studentCtrl.getA
 studentRouter.post("/submit-assignment/:assignmentId", studentAuth, createMulterUpload('submission', 'content'), studentCtrl.submitAssignment);
 studentRouter.get("/get-timetable", studentAuth, studentCtrl.getTimeTable);
 studentRouter.get("/student", studentCtrl.getStudent);
+studentRouter.get("/announcements", studentAuth, studentCtrl.getStudentAnnouncements);
 
 
 module.exports = studentRouter;
