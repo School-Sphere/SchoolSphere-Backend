@@ -1,4 +1,5 @@
 const Student = require('./student_model');
+const School = require('./school_model');
 const Teacher = require('./teacher_model');
 const Class = require('./class_model');
 const User = require('./user_model');
@@ -15,6 +16,7 @@ Models = [
     Class,
     User,
     Otp,
+    School,
     Payment,
     Timetable,
     Assignment,

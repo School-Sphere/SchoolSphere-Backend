@@ -3,6 +3,8 @@ const Teacher = require("../models/teacher_model");
 const Class = require("../models/class_model");
 const generatePassword = require("../utils/password_generator");
 const bcrypt = require("bcryptjs");
+const School = require("../models/school_model");
+const Models = require("../models/models");
 const User = require("../models/user_model");
 const { ErrorHandler } = require("../middlewares/error");
 const mongoose = require("mongoose");
@@ -70,6 +72,45 @@ const schoolCtrl = {
             next(err);
         } finally {
             session.endSession();
+        }
+    },
+
+    deleteSchool: async (req, res, next) => {
+        try {
+            const { password, schoolCode } = req.body;
+
+            if (!password) {
+                return res.status(400).json({ message: 'Password is required.' });
+            }
+            if (!schoolCode) {
+                return res.status(400).json({ message: 'School code is required.' });
+            }
+
+            const adminUser = await School.findOne({ schoolCode });
+            if (!adminUser) {
+                return res.status(404).json({ message: 'No School found with given school code' });
+            }
+
+            const isPasswordValid = await bcrypt.compare(password, adminUser.password);
+            if (!isPasswordValid) {
+                return res.status(401).json({ message: 'Invalid password.' });
+            }
+
+            for (const modelName in Models) {
+                if (Models.hasOwnProperty(modelName)) {
+                    const Model = Models[modelName];
+                    const result = await Model.deleteMany({ schoolCode });
+                    console.log(`${modelName}: Deleted ${result.deletedCount} documents.`);
+                }
+            }
+
+            res.status(200).json({
+                success: true,
+                message: `All data for school code '${schoolCode}' has been successfully deleted.`,
+            });
+        } catch (error) {
+            console.error('Error deleting school data:', error);
+            next(error);
         }
     },
 
@@ -147,7 +188,7 @@ const schoolCtrl = {
             if (!await Teacher.findById(classTeacher).session(session)) {
                 return res.status(400).json({ success: false, message: 'Teacher not found' });
             }
-            const myClass = await Class.findOne({ name, section , schoolCode}).session(session);
+            const myClass = await Class.findOne({ name, section, schoolCode }).session(session);
             if (myClass) {
                 return res.status(400).json({ success: false, message: 'Class ' + name + '-' + section + ' already exists' });
             }

@@ -6,5 +6,6 @@ const schoolRouter = express.Router();
 schoolRouter.post("/add-student", schoolAuth, schoolCtrl.addStudent);
 schoolRouter.post("/add-class", schoolAuth, schoolCtrl.addClass);
 schoolRouter.post("/add-teacher", schoolAuth, schoolCtrl.addTeacher);
+schoolRouter.delete("/delete-school", schoolAuth, schoolCtrl.deleteSchool);
 
 module.exports = schoolRouter;
