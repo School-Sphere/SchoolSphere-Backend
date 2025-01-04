@@ -9,23 +9,9 @@ const adminCtrl = {
     createSchool: async (req, res, next) => {
         try {
             const { name, address, email, schoolCode } = req.body;
-            if (!schoolCode) {
-                return next(new ErrorHandler(400, "School code is required"));
-            }
-
-            const schoolCodeRegex = /^[A-Z0-9]{6,10}$/;
-            if (!schoolCodeRegex.test(schoolCode)) {
-                return next(new ErrorHandler(400, "School code must be 6-10 characters long and contain only uppercase letters and numbers"));
-            }
-
-            let existingSchool = await School.findOne({ $or: [{ email }, { schoolCode }] });
+            let existingSchool = await School.findOne({ email, schoolCode });
             if (existingSchool) {
-                if (existingSchool.email === email) {
-                    return next(new ErrorHandler(400, "School with the same email already exists"));
-                }
-                if (existingSchool.schoolCode === schoolCode) {
-                    return next(new ErrorHandler(400, "School code already in use"));
-                }
+                return next(new ErrorHandler(400, "School with the same email already exists"));
             }
             const password = generatePassword();
             const hashedPassword = await bcrypt.hash(password, 8);
