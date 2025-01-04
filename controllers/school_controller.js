@@ -62,6 +62,7 @@ const schoolCtrl = {
 
             // Create a user
             const newUser = new User({
+                _id: newStudent._id,
                 name,
                 email,
                 password: hashedPassword,
@@ -160,6 +161,7 @@ const schoolCtrl = {
 
             // Create a user
             const newUser = new User({
+                _id: newTeacher._id,
                 name,
                 email,
                 password: hashedPassword,
