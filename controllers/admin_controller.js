@@ -2,19 +2,31 @@ const School = require("../models/school_model");
 const { ErrorHandler } = require("../middlewares/error");
 const generatePassword = require("../utils/password_generator");
 const sendEmailSchool = require("../utils/school_mailer");
-const uuid = require("uuid");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 const adminCtrl = {
     createSchool: async (req, res, next) => {
         try {
-            const { name, address, email } = req.body;
-            let existingSchool = await School.findOne({ email });
-            if (existingSchool) {
-                return next(new ErrorHandler(400, "School with the same email already exists"));
+            const { name, address, email, schoolCode } = req.body;
+            if (!schoolCode) {
+                return next(new ErrorHandler(400, "School code is required"));
             }
-            const schoolCode = uuid.v4();
+
+            const schoolCodeRegex = /^[A-Z0-9]{6,10}$/;
+            if (!schoolCodeRegex.test(schoolCode)) {
+                return next(new ErrorHandler(400, "School code must be 6-10 characters long and contain only uppercase letters and numbers"));
+            }
+
+            let existingSchool = await School.findOne({ $or: [{ email }, { schoolCode }] });
+            if (existingSchool) {
+                if (existingSchool.email === email) {
+                    return next(new ErrorHandler(400, "School with the same email already exists"));
+                }
+                if (existingSchool.schoolCode === schoolCode) {
+                    return next(new ErrorHandler(400, "School code already in use"));
+                }
+            }
             const password = generatePassword();
             const hashedPassword = await bcrypt.hash(password, 8);
             const newSchool = new School({
@@ -35,7 +47,10 @@ const adminCtrl = {
             res.status(201).json({
                 success: true,
                 message: "School created successfully",
-                data: newSchool,
+                data: {
+                    ...newSchool.toObject(),
+                    schoolCode: schoolCode
+                }
             });
         }
         catch (e) {
