@@ -6,6 +6,7 @@ const schoolRouter = express.Router();
 schoolRouter.post("/add-student", schoolAuth, schoolCtrl.addStudent);
 schoolRouter.post("/add-class", schoolAuth, schoolCtrl.addClass);
 schoolRouter.post("/add-teacher", schoolAuth, schoolCtrl.addTeacher);
+schoolRouter.post("/update-class-teacher", schoolAuth, schoolCtrl.updateClassTeacher);
 
 schoolRouter.post("/announcement", schoolAuth, schoolCtrl.createSchoolAnnouncement);
 schoolRouter.get("/announcements", schoolAuth, schoolCtrl.getSchoolAnnouncements);

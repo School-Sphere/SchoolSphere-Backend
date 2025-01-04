@@ -152,28 +152,39 @@ const schoolCtrl = {
         try {
             const { name, section, classTeacher } = req.body;
             const schoolCode = req.school.schoolCode;
-            if (!name || !section || !classTeacher) {
-                return res.status(400).json({ success: false, message: 'Please fill all the fields to add a class' });
+            if (!name || !section) {
+                return res.status(400).json({ success: false, message: 'Class name and section are required' });
             }
-            if (!await Teacher.findById(classTeacher).session(session)) {
-                return res.status(400).json({ success: false, message: 'Teacher not found' });
+            if (classTeacher) {
+                const teacher = await Teacher.findById(classTeacher).session(session);
+                if (!teacher) {
+                    return res.status(400).json({ success: false, message: 'Specified teacher not found' });
+                }
             }
-            const myClass = await Class.findOne({ name, section , schoolCode}).session(session);
+            const myClass = await Class.findOne({ name, section, schoolCode }).session(session);
             if (myClass) {
                 return res.status(400).json({ success: false, message: 'Class ' + name + '-' + section + ' already exists' });
             }
-            const newClass = new Class({
+            const classData = {
                 name,
                 section,
-                schoolCode,
-                classTeacher
-            });
-            const room = await Room.createClassRoom(
-                `${name}-${section}`,
-                classTeacher,
                 schoolCode
-            );
-            
+            };
+            if (classTeacher) {
+                classData.classTeacher = classTeacher;
+            }
+            const newClass = new Class(classData);
+            const roomMembers = [];
+            if (classTeacher) {
+                roomMembers.push({ user: classTeacher, role: 'teacher' });
+            }
+            const room = await Room.create({
+                name: `${name}-${section}`,
+                type: 'class',
+                members: roomMembers,
+                schoolCode
+            });
+
             newClass.chatRoomId = room._id;
             await newClass.save({ session });
 
@@ -231,7 +242,7 @@ const schoolCtrl = {
             const schoolCode = req.school.schoolCode;
             const { page = 1, limit = 10, startDate, endDate, targetAudience } = req.query;
 
-            const query = { 
+            const query = {
                 schoolCode,
                 scope: ANNOUNCEMENT_SCOPE.SCHOOL
             };
@@ -336,6 +347,76 @@ const schoolCtrl = {
             });
         } catch (err) {
             next(err);
+        }
+    },
+
+    updateClassTeacher: async (req, res, next) => {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        try {
+            const { classId, teacherId } = req.body;
+            const schoolCode = req.school.schoolCode;
+
+            if (!classId || !teacherId) {
+                return next(new ErrorHandler(400, "Class ID and Teacher ID are required"));
+            }
+
+            // Find and validate class
+            const classToUpdate = await Class.findOne({ _id: classId, schoolCode }).session(session);
+            if (!classToUpdate) {
+                return next(new ErrorHandler(404, "Class not found"));
+            }
+
+            // Find and validate new teacher
+            const newTeacher = await Teacher.findOne({ _id: teacherId, schoolCode }).session(session);
+            if (!newTeacher) {
+                return next(new ErrorHandler(404, "Teacher not found"));
+            }
+
+            // If there's an existing class teacher, remove the class reference
+            if (classToUpdate.classTeacher) {
+                const oldTeacher = await Teacher.findById(classToUpdate.classTeacher).session(session);
+                if (oldTeacher) {
+                    oldTeacher.class = undefined;
+                    await oldTeacher.save({ session });
+
+                    // Remove old teacher from class chat room if exists
+                    if (classToUpdate.chatRoomId) {
+                        const room = await Room.findById(classToUpdate.chatRoomId);
+                        if (room) {
+                            await room.removeMember(oldTeacher._id);
+                        }
+                    }
+                }
+            }
+
+            // Update new teacher's class reference
+            newTeacher.class = classToUpdate._id;
+            await newTeacher.save({ session });
+
+            // Update class's teacher reference
+            classToUpdate.classTeacher = newTeacher._id;
+            await classToUpdate.save({ session });
+
+            // Add new teacher to class chat room
+            if (classToUpdate.chatRoomId) {
+                const room = await Room.findById(classToUpdate.chatRoomId);
+                if (room) {
+                    await room.addMember(newTeacher._id, 'teacher');
+                }
+            }
+
+            await session.commitTransaction();
+            res.status(200).json({
+                success: true,
+                message: "Class teacher updated successfully",
+                data: classToUpdate
+            });
+        } catch (err) {
+            await session.abortTransaction();
+            next(err);
+        } finally {
+            session.endSession();
         }
     }
 };
