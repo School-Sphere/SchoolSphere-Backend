@@ -1,6 +1,7 @@
 const { required } = require('joi');
 const mongoose = require('mongoose');
 const userSchema = require('./user_model').schema;
+const attendanceSchema = require('./attendance_model').schema;
 
 const studentSchema = new mongoose.Schema({
   ...userSchema.obj,
@@ -45,10 +46,7 @@ const studentSchema = new mongoose.Schema({
   motherOccupation: {
     type: String,
   },
-  attendance: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Attendance'
-  }],
+  attendance: [attendanceSchema],
   pendingAssignments: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'StudentAssignment'
