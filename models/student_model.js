@@ -1,7 +1,7 @@
-const { required } = require('joi');
 const mongoose = require('mongoose');
 const userSchema = require('./user_model').schema;
 const attendanceSchema = require('./attendance_model').schema;
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const studentSchema = new mongoose.Schema({
   ...userSchema.obj,
@@ -47,6 +47,19 @@ const studentSchema = new mongoose.Schema({
     type: String,
   },
   attendance: [attendanceSchema],
+  religion: {
+    type: String,
+  },
+  bloodGroup: {
+    type: String
+  },
+  profilePicture: {
+    type: String,
+  },
+  attendance: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Attendance'
+  }],
   pendingAssignments: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'StudentAssignment'
@@ -67,10 +80,12 @@ studentSchema.virtual('submittedAssignmentDetails', {
   localField: '_id',
   foreignField: 'studentId',
   options: { sort: { submissionDate: -1 } },
-  match: function() {
+  match: function () {
     return { studentId: this._id };
   }
 });
+
+studentSchema.plugin(mongoosePaginate);
 
 studentSchema.index({ schoolCode: 1, studentId: 1 }, { unique: true });
 
