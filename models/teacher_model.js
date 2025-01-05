@@ -40,6 +40,15 @@ const teacherSchema = new mongoose.Schema({
   qualifications: {
     type: String,
   },
+  bloodGroup: {
+    type: String,
+  },
+  religion: {
+    type: String,
+  },
+  doj: {
+    type: Date,
+  },
   assignments: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Assignment'

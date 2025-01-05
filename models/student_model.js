@@ -45,6 +45,15 @@ const studentSchema = new mongoose.Schema({
   motherOccupation: {
     type: String,
   },
+  religion: {
+    type: String,
+  },
+  bloodGroup: {
+    type: String
+  },
+  profilePicture: {
+    type: String,
+  },
   attendance: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Attendance'

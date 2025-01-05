@@ -549,6 +549,125 @@ const schoolCtrl = {
         } finally {
             session.endSession();
         }
+    },
+
+    getAllStudents: async (req, res, next) => {
+        try {
+            const schoolCode = req.school.schoolCode;
+            const { page = 1, limit = 10 } = req.query;
+
+            if (isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
+                return next(new ErrorHandler(400, "Invalid pagination parameters"));
+            }
+
+            const query = { schoolCode };
+
+            const options = {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                sort: { name: 1 },
+                populate: {
+                    path: 'classId',
+                    select: 'name section classTeacher',
+                    populate: {
+                        path: 'classTeacher',
+                        select: 'name email'
+                    }
+                },
+                select: 'name email studentId classId'
+            };
+
+            const students = await Student.paginate(query, options);
+
+            res.status(200).json({
+                success: true,
+                data: students
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getAllTeachers: async (req, res, next) => {
+        try {
+            const schoolCode = req.school.schoolCode;
+            const { page = 1, limit = 10 } = req.query;
+
+            if (isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
+                return next(new ErrorHandler(400, "Invalid pagination parameters"));
+            }
+
+            const query = { schoolCode };
+
+            const options = {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                sort: { name: 1 },
+                populate: [
+                    {
+                        path: 'assignedClass',
+                        select: 'name section'
+                    },
+                    {
+                        path: 'teachingClasses',
+                        select: 'name section'
+                    }
+                ],
+                select: 'name email teacherId assignedClass teachingClasses'
+            };
+
+            const teachers = await Teacher.paginate(query, options);
+
+            res.status(200).json({
+                success: true,
+                data: teachers
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getAllClasses: async (req, res, next) => {
+        try {
+            const schoolCode = req.school.schoolCode;
+            const { page = 1, limit = 10 } = req.query;
+
+            if (isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
+                return next(new ErrorHandler(400, "Invalid pagination parameters"));
+            }
+
+            const query = { schoolCode };
+
+            const options = {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                sort: { name: 1, section: 1 },
+                populate: [
+                    {
+                        path: 'classTeacher',
+                        select: 'name email teacherId'
+                    },
+                    {
+                        path: 'students',
+                        select: 'name email studentId'
+                    },
+                    {
+                        path: 'subjects',
+                        select: 'subjectName'
+                    }
+                ],
+                select: 'name section classTeacher students subjects'
+            };
+
+            const classes = await Class.paginate(query, options);
+
+            res.status(200).json({
+                success: true,
+                data: classes
+            });
+        } catch (err) {
+            next(err);
+        }
     }
 };
 

@@ -16,4 +16,8 @@ schoolRouter.get("/announcements", schoolAuth, schoolCtrl.getSchoolAnnouncements
 schoolRouter.post("/events", schoolAuth, schoolCtrl.createEvent);
 schoolRouter.get("/events", schoolAuth, schoolCtrl.getEvents);
 
+schoolRouter.get("/students", schoolAuth, schoolCtrl.getAllStudents);
+schoolRouter.get("/teachers", schoolAuth, schoolCtrl.getAllTeachers);
+schoolRouter.get("/classes", schoolAuth, schoolCtrl.getAllClasses);
+
 module.exports = schoolRouter;
