@@ -1,3 +1,4 @@
+const cors = require("cors");
 const express = require("express");
 const mongoose = require("mongoose");
 const { errorMiddleware } = require("./middlewares/error");
@@ -17,14 +18,14 @@ require("dotenv").config();
 
 const app = express();
 const http = require("http");
-const { error } = require("console");
 const server = http.createServer(app);
+
+// Enable CORS for all origins
+app.use(cors()); // <-- Add this line
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(errorMiddleware);
-
-
 
 app.use(authRouter, errorMiddleware);
 app.use(adminRouter, errorMiddleware);
@@ -33,9 +34,8 @@ app.use(studentRouter, errorMiddleware);
 app.use(teacherRouter, errorMiddleware);
 app.use(paymentRouter, errorMiddleware);
 
-
-
 const PORT = process.env.PORT || 5000;
+
 const syncAllIndexes = async (models) => {
   try {
     for (const modelName in models) {
@@ -52,15 +52,17 @@ const syncAllIndexes = async (models) => {
     console.error("Error syncing indexes:", err);
   }
 };
-mongoose.connect(process.env.DB)
+
+mongoose
+  .connect(process.env.DB)
   .then(() => {
     console.log("Database connection successful");
-    
+
     try {
       // Initialize Socket.IO
       SocketManager.initialize(server);
       console.log("Socket.IO initialized successfully");
-      
+
       server.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}`);
       });
