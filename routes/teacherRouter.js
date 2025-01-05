@@ -4,7 +4,7 @@ const { createMulterUpload } = require("../middlewares");
 const teacherAuth = require("../middlewares/teacher");
 const teacherRouter = express.Router();
 
-teacherRouter.post("/create-assignment", teacherAuth, createMulterUpload('Assignments','content'), teacherCtrl.createAssignment);
+teacherRouter.post("/create-assignment", teacherAuth, createMulterUpload('Assignments', 'content'), teacherCtrl.createAssignment);
 teacherRouter.get("/teacher/get-assignments", teacherAuth, teacherCtrl.getAssignments);
 teacherRouter.post("/assign-assignment", teacherAuth, teacherCtrl.assignAssignment);
 teacherRouter.post("/mark-all-present", teacherAuth, teacherCtrl.markAllPresent);
@@ -13,7 +13,7 @@ teacherRouter.post("/mark-absent", teacherAuth, teacherCtrl.markAbsent);
 teacherRouter.post("/create-timetable", teacherAuth, teacherCtrl.createTimeTable);
 teacherRouter.get("/get-timetable", teacherAuth, teacherCtrl.getTimeTable);
 teacherRouter.patch("/update-timetable", teacherAuth, teacherCtrl.updateTimeTable);
-teacherRouter.get("/teacher",teacherAuth, teacherCtrl.getTeacher);
+teacherRouter.get("/teacher", teacherAuth, teacherCtrl.getTeacher);
 teacherRouter.get("/teacher/classes", teacherAuth, teacherCtrl.getTeacherClasses);
 teacherRouter.get("/teacher/classes/:classId", teacherAuth, teacherCtrl.getClassDetails);
 teacherRouter.post("/class/:classId/announcement", teacherAuth, teacherCtrl.createClassAnnouncement);
