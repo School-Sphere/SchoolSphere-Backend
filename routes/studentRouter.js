@@ -9,7 +9,7 @@ studentRouter.get("/get-assignment/:assignmentId", studentAuth, studentCtrl.getA
 studentRouter.post("/submit-assignment/:assignmentId", studentAuth, createMulterUpload('submission', 'content'), studentCtrl.submitAssignment);
 studentRouter.get("/get-submitted-assignments", studentAuth, studentCtrl.getSubmittedAssignments);
 studentRouter.get("/get-timetable", studentAuth, studentCtrl.getTimeTable);
-studentRouter.get("/student", studentCtrl.getStudent);
+studentRouter.get("/student",studentAuth, studentCtrl.getStudent);
 studentRouter.get("/announcements", studentAuth, studentCtrl.getStudentAnnouncements);
 
 studentRouter.get("/events", studentAuth, studentCtrl.getStudentEvents);

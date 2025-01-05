@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const userSchema = require('./user_model').schema;
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const teacherSchema = new mongoose.Schema({
   ...userSchema.obj,
@@ -7,10 +8,21 @@ const teacherSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  class: {
+  assignedClass: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Class',
+    validate: {
+      validator: function (value) {
+        if (!value) return true; // Skip validation if no value
+        return this.teachingClasses && this.teachingClasses.some(classId => classId.equals(value));
+      },
+      message: 'Assigned class must be one of the teaching classes'
+    }
+  },
+  teachingClasses: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Class'
-  },
+  }],
   dob: {
     type: Date,
   },
@@ -29,6 +41,15 @@ const teacherSchema = new mongoose.Schema({
   qualifications: {
     type: String,
   },
+  bloodGroup: {
+    type: String,
+  },
+  religion: {
+    type: String,
+  },
+  doj: {
+    type: Date,
+  },
   assignments: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Assignment'
@@ -46,5 +67,6 @@ const teacherSchema = new mongoose.Schema({
 
 // Allow only one teacher per school with the same teacherId
 teacherSchema.index({ schoolCode: 1, teacherId: 1 }, { unique: true });
+teacherSchema.plugin(mongoosePaginate);
 
 module.exports = mongoose.model('Teacher', teacherSchema);
