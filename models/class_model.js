@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Timetable = require('../models/timetable_model');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const classSchema = new mongoose.Schema({
     name: {
@@ -64,6 +65,8 @@ classSchema.pre('save', async function (next) {
     }
     next();
 });
+
+classSchema.plugin(mongoosePaginate);
 
 const Class = mongoose.model("Class", classSchema);
 module.exports = Class;

@@ -1,6 +1,6 @@
-const { required } = require('joi');
 const mongoose = require('mongoose');
 const userSchema = require('./user_model').schema;
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const studentSchema = new mongoose.Schema({
   ...userSchema.obj,
@@ -82,6 +82,8 @@ studentSchema.virtual('submittedAssignmentDetails', {
     return { studentId: this._id };
   }
 });
+
+studentSchema.plugin(mongoosePaginate);
 
 studentSchema.index({ schoolCode: 1, studentId: 1 }, { unique: true });
 

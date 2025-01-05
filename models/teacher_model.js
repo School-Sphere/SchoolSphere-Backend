@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const userSchema = require('./user_model').schema;
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const teacherSchema = new mongoose.Schema({
   ...userSchema.obj,
@@ -66,5 +67,6 @@ const teacherSchema = new mongoose.Schema({
 
 // Allow only one teacher per school with the same teacherId
 teacherSchema.index({ schoolCode: 1, teacherId: 1 }, { unique: true });
+teacherSchema.plugin(mongoosePaginate);
 
 module.exports = mongoose.model('Teacher', teacherSchema);
