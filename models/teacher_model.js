@@ -7,10 +7,21 @@ const teacherSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  class: {
+  assignedClass: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Class',
+    validate: {
+      validator: function (value) {
+        if (!value) return true; // Skip validation if no value
+        return this.teachingClasses && this.teachingClasses.some(classId => classId.equals(value));
+      },
+      message: 'Assigned class must be one of the teaching classes'
+    }
+  },
+  teachingClasses: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Class'
-  },
+  }],
   dob: {
     type: Date,
   },

@@ -7,6 +7,8 @@ schoolRouter.post("/add-student", schoolAuth, schoolCtrl.addStudent);
 schoolRouter.post("/add-class", schoolAuth, schoolCtrl.addClass);
 schoolRouter.post("/add-teacher", schoolAuth, schoolCtrl.addTeacher);
 schoolRouter.post("/update-class-teacher", schoolAuth, schoolCtrl.updateClassTeacher);
+schoolRouter.post("/add-subjects", schoolAuth, schoolCtrl.addSubjectsToClass);
+schoolRouter.post("/assign-subject-teacher", schoolAuth, schoolCtrl.assignTeacherToSubject);
 
 schoolRouter.post("/announcement", schoolAuth, schoolCtrl.createSchoolAnnouncement);
 schoolRouter.get("/announcements", schoolAuth, schoolCtrl.getSchoolAnnouncements);

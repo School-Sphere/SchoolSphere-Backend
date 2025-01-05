@@ -418,6 +418,94 @@ const schoolCtrl = {
         } finally {
             session.endSession();
         }
+    },
+
+    addSubjectsToClass: async (req, res, next) => {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        try {
+            const { classId, subjects } = req.body;
+            const schoolCode = req.school.schoolCode;
+
+            if (!classId || !Array.isArray(subjects) || subjects.length === 0) {
+                return next(new ErrorHandler(400, "Class ID and subjects array are required"));
+            }
+
+            const classToUpdate = await Class.findOne({ _id: classId, schoolCode }).session(session);
+            if (!classToUpdate) {
+                return next(new ErrorHandler(404, "Class not found"));
+            }
+
+            const Subject = mongoose.model('Subject');
+            const subjectDocs = [];
+
+            for (const subjectName of subjects) {
+                let subject = await Subject.findOne({ subjectName, schoolCode }).session(session);
+                if (!subject) {
+                    subject = new Subject({
+                        subjectName,
+                        schoolCode
+                    });
+                    await subject.save({ session });
+                }
+                if (!classToUpdate.subjects.includes(subject._id)) {
+                    subjectDocs.push(subject);
+                }
+            }
+
+            classToUpdate.subjects.push(...subjectDocs.map(s => s._id));
+            await classToUpdate.save({ session });
+
+            await session.commitTransaction();
+            res.status(200).json({
+                success: true,
+                message: "Subjects added to class successfully",
+                data: classToUpdate
+            });
+        } catch (err) {
+            await session.abortTransaction();
+            next(err);
+        } finally {
+            session.endSession();
+        }
+    },
+
+    assignTeacherToSubject: async (req, res, next) => {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        try {
+            const { subjectId, teacherId } = req.body;
+            const schoolCode = req.school.schoolCode;
+
+            if (!subjectId || !teacherId) {
+                return next(new ErrorHandler(400, "Subject ID and Teacher ID are required"));
+            }
+
+            const subject = await mongoose.model('Subject').findOne({ _id: subjectId, schoolCode }).session(session);
+            if (!subject) {
+                return next(new ErrorHandler(404, "Subject not found"));
+            }
+
+            const teacher = await Teacher.findOne({ _id: teacherId, schoolCode }).session(session);
+            if (!teacher) {
+                return next(new ErrorHandler(404, "Teacher not found"));
+            }
+
+            subject.teacherId = teacherId;
+            await subject.save({ session });
+
+            await session.commitTransaction();
+            res.status(200).json({
+                success: true,
+                message: "Teacher assigned to subject successfully",
+                data: subject
+            });
+        } catch (err) {
+            await session.abortTransaction();
+            next(err);
+        } finally {
+            session.endSession();
+        }
     }
 };
 
