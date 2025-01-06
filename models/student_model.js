@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const userSchema = require('./user_model').schema;
+const attendanceSchema = require('./attendance_model').schema;
 const mongoosePaginate = require('mongoose-paginate-v2');
 
 const studentSchema = new mongoose.Schema({
@@ -45,6 +46,7 @@ const studentSchema = new mongoose.Schema({
   motherOccupation: {
     type: String,
   },
+  attendance: [attendanceSchema],
   religion: {
     type: String,
   },
@@ -78,7 +80,7 @@ studentSchema.virtual('submittedAssignmentDetails', {
   localField: '_id',
   foreignField: 'studentId',
   options: { sort: { submissionDate: -1 } },
-  match: function() {
+  match: function () {
     return { studentId: this._id };
   }
 });
