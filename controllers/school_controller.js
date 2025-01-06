@@ -12,6 +12,7 @@ const sendEmailSchool = require("../utils/school_mailer");
 const Room = require("../models/room_model");
 const { Announcement, ANNOUNCEMENT_SCOPE, TARGET_AUDIENCE } = require("../models/announcement_model");
 const { Event } = require("../models/event_model");
+const { isValidFileType, isValidFileSize, parseCSV, parseExcel, validateStudentData } = require('../utils/file_validator');
 
 const schoolCtrl = {
     addStudent: async (req, res, next) => {
@@ -824,7 +825,7 @@ const schoolCtrl = {
                         section: doc.section
                     })
                 })
-                .select('_id teacherId name gender contactNumber email designation qualifications address dob bloodGroup religion doj');
+                .select('_id teacherId name gender contactNumber email designation qualifications address dob bloodGroup religion doj profilePicture');
 
             if (!teacher) {
                 return next(new ErrorHandler(404, "Teacher not found"));
@@ -845,7 +846,8 @@ const schoolCtrl = {
                 dob: teacher.dob,
                 bloodGroup: teacher.bloodGroup,
                 religion: teacher.religion,
-                doj: teacher.doj
+                doj: teacher.doj,
+                profilePicture: teacher.profilePicture
             };
 
             res.status(200).json({
@@ -875,7 +877,250 @@ const schoolCtrl = {
         } catch (err) {
             next(err);
         }
-    }
+    },
+    importStudents: async (req, res, next) => {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        try {
+            if (!req.file) {
+                return next(new ErrorHandler(400, "No file uploaded"));
+            }
+
+            // Validate file type and size
+            if (!isValidFileType(req.file)) {
+                return next(new ErrorHandler(400, "Invalid file type. Only CSV and Excel files are allowed"));
+            }
+            if (!isValidFileSize(req.file)) {
+                return next(new ErrorHandler(400, "File size exceeds limit"));
+            }
+
+            // Parse file content based on type
+            let students;
+            if (req.file.mimetype === 'text/csv') {
+                students = parseCSV(req.file.buffer);
+            } else {
+                students = parseExcel(req.file.buffer);
+            }
+
+            const schoolCode = req.school.schoolCode;
+            const results = {
+                successful: [],
+                failed: []
+            };
+
+            // Process each student
+            for (const studentData of students) {
+                try {
+                    // Validate student data
+                    const validation = validateStudentData(studentData);
+                    if (!validation.isValid) {
+                        results.failed.push({
+                            studentId: studentData.studentId,
+                            errors: validation.errors
+                        });
+                        continue;
+                    }
+
+                    // Check for existing student
+                    const existingStudent = await Student.findOne({
+                        $or: [{ email: studentData.email }, { studentId: studentData.studentId }],
+                        schoolCode
+                    }).session(session);
+
+                    if (existingStudent) {
+                        results.failed.push({
+                            studentId: studentData.studentId,
+                            errors: ['Student with this email or ID already exists']
+                        });
+                        continue;
+                    }
+
+                    // Validate class
+                    const studentClass = await Class.findOne({
+                        _id: studentData.classId,
+                        schoolCode
+                    }).session(session);
+
+                    if (!studentClass) {
+                        results.failed.push({
+                            studentId: studentData.studentId,
+                            errors: ['Invalid class ID']
+                        });
+                        continue;
+                    }
+
+                    // Create student
+                    const password = generatePassword();
+                    const hashedPassword = await bcrypt.hash(password, parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 8);
+
+                    const newStudent = new Student({
+                        ...studentData,
+                        password: hashedPassword,
+                        role: 'student',
+                        schoolCode
+                    });
+
+                    // Update class roster
+                    studentClass.students.push(newStudent._id);
+                    await studentClass.save({ session });
+                    await newStudent.save({ session });
+
+                    // Add to class chat room
+                    if (studentClass.chatRoomId) {
+                        const room = await Room.findById(studentClass.chatRoomId);
+                        if (room) {
+                            await room.addMember(newStudent._id, 'student');
+                        }
+                    }
+
+                    // Create user account
+                    const newUser = new User({
+                        _id: newStudent._id,
+                        name: studentData.name,
+                        email: studentData.email,
+                        password: hashedPassword,
+                        role: 'student',
+                        schoolCode
+                    });
+                    await newUser.save({ session });
+
+                    // Send welcome email
+                    await sendEmailSchool(studentData.email, schoolCode, password, "Student Added");
+
+                    results.successful.push({
+                        studentId: studentData.studentId,
+                        name: studentData.name
+                    });
+                } catch (error) {
+                    results.failed.push({
+                        studentId: studentData.studentId,
+                        errors: [error.message]
+                    });
+                }
+            }
+
+            await session.commitTransaction();
+            res.status(201).json({
+                success: true,
+                message: "Bulk student import completed",
+                data: results
+            });
+        } catch (err) {
+            await session.abortTransaction();
+            next(err);
+        } finally {
+            session.endSession();
+        }
+    },
+    importTeachers: async (req, res, next) => {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        try {
+            if (!req.file) {
+                return next(new ErrorHandler(400, "No file uploaded"));
+            }
+
+            // Validate file type and size
+            if (!isValidFileType(req.file)) {
+                return next(new ErrorHandler(400, "Invalid file type. Only CSV and Excel files are allowed"));
+            }
+            if (!isValidFileSize(req.file)) {
+                return next(new ErrorHandler(400, "File size exceeds limit"));
+            }
+
+            // Parse file content based on type
+            let teachers;
+            if (req.file.mimetype === 'text/csv') {
+                teachers = parseCSV(req.file.buffer);
+            } else {
+                teachers = parseExcel(req.file.buffer);
+            }
+
+            const schoolCode = req.school.schoolCode;
+            const results = {
+                successful: [],
+                failed: []
+            };
+
+            // Process each teacher
+            for (const teacherData of teachers) {
+                try {
+                    // Validate teacher data
+                    const validation = validateTeacherData(teacherData);
+                    if (!validation.isValid) {
+                        results.failed.push({
+                            teacherId: teacherData.teacherId,
+                            errors: validation.errors
+                        });
+                        continue;
+                    }
+
+                    // Check for existing teacher
+                    const existingTeacher = await Teacher.findOne({
+                        $or: [{ email: teacherData.email }, { teacherId: teacherData.teacherId }],
+                        schoolCode
+                    }).session(session);
+
+                    if (existingTeacher) {
+                        results.failed.push({
+                            teacherId: teacherData.teacherId,
+                            errors: ['Teacher with this email or ID already exists']
+                        });
+                        continue;
+                    }
+
+                    // Create teacher
+                    const password = generatePassword();
+                    const hashedPassword = await bcrypt.hash(password, parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 8);
+
+                    const newTeacher = new Teacher({
+                        ...teacherData,
+                        password: hashedPassword,
+                        role: 'teacher',
+                        schoolCode
+                    });
+
+                    await newTeacher.save({ session });
+
+                    // Create user account
+                    const newUser = new User({
+                        _id: newTeacher._id,
+                        name: teacherData.name,
+                        email: teacherData.email,
+                        password: hashedPassword,
+                        role: 'teacher',
+                        schoolCode
+                    });
+                    await newUser.save({ session });
+
+                    // Send welcome email
+                    await sendEmailSchool(teacherData.email, schoolCode, password, "Teacher Added");
+
+                    results.successful.push({
+                        teacherId: teacherData.teacherId,
+                        name: teacherData.name
+                    });
+                } catch (error) {
+                    results.failed.push({
+                        teacherId: teacherData.teacherId,
+                        errors: [error.message]
+                    });
+                }
+            }
+
+            await session.commitTransaction();
+            res.status(201).json({
+                success: true,
+                message: "Bulk teacher import completed",
+                data: results
+            });
+        } catch (err) {
+            await session.abortTransaction();
+            next(err);
+        } finally {
+            session.endSession();
+        }
+    },
 };
 
 module.exports = schoolCtrl;
