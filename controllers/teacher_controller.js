@@ -5,9 +5,6 @@ const teacherSchema = require('../models/teacher_model');
 const studentSchema = require('../models/student_model');
 const TimetableSchema = require('../models/timetable_model')
 const Class = require('../models/class_model');
-const express = require('express');
-const jwt = require('jsonwebtoken');
-const TeacherModel = require('../models/teacher_model');
 const { Announcement, ANNOUNCEMENT_SCOPE, TARGET_AUDIENCE } = require('../models/announcement_model');
 const CourseMaterial = require('../models/course_material_model');
 const { Event } = require('../models/event_model');
@@ -65,7 +62,8 @@ const teacherCtrl = {
             if (!assignment) {
                 return res.status(404).json({ success: false, message: 'Assignment not found' });
             }
-            if (assignment.teacherId != req.teacher._id) {
+            if (assignment.teacherId.toString() !== req.teacher._id.toString()) {
+                console.log('Teacher ID: ' + req.teacher._id, 'Assignment teacher ID: ' + assignment.teacherId);
                 return res.status(403).json({ success: false, message: 'You are not authorized to assign this assignment' });
             }
             const assignmentObject = assignment.toObject();
@@ -81,16 +79,19 @@ const teacherCtrl = {
                 return res.json({ success: false, message: 'Class not found' });
             }
             const students = reqClass.students;
+            var assignedStudents = 0;
             for (let i = 0; i < students.length; i++) {
-                const student = await studentSchema.findById(students[i]);
-                if (!student) {
+                const student = await studentSchema.findOne({ _id: students[i], schoolCode: req.teacher.schoolCode });
+                if (student == null) {
                     console.log('Student not found' + students[i]);
+                    continue;
                 }
+                assignedStudents++;
                 student.pendingAssignments.push(newAssignment._id);
                 await student.save();
             }
             await newAssignment.save();
-            res.json({ success: true, message: 'Assignment assigned successfully to ' + students.length + ' students of class ' + reqClass.name + '-' + reqClass.section });
+            res.json({ success: true, message: 'Assignment assigned successfully to ' + assignedStudents + ' students of class ' + reqClass.name + '-' + reqClass.section });
         } catch (err) {
             next(err);
         }
@@ -268,7 +269,7 @@ const teacherCtrl = {
             }
 
             // Verify if teacher has access to this class
-            if (classDetails.classTeacher._id.toString() !== teacherId.toString() && 
+            if (classDetails.classTeacher._id.toString() !== teacherId.toString() &&
                 !classDetails.subjects.some(subject => subject.teacher && subject.teacher.toString() === teacherId.toString())) {
                 return res.status(403).json({ success: false, message: 'You do not have access to this class' });
             }
@@ -285,9 +286,9 @@ const teacherCtrl = {
             const teacherId = req.teacher._id;
 
             if (!title || !description || !classId) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'Title, description and class ID are required' 
+                return res.status(400).json({
+                    success: false,
+                    message: 'Title, description and class ID are required'
                 });
             }
 
@@ -297,12 +298,12 @@ const teacherCtrl = {
                 return res.status(404).json({ success: false, message: 'Class not found' });
             }
 
-            if (classDetails.classTeacher.toString() !== teacherId.toString() && 
-                !classDetails.subjects.some(subject => subject.teacher && 
-                subject.teacher.toString() === teacherId.toString())) {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: 'You are not authorized to create announcements for this class' 
+            if (classDetails.classTeacher.toString() !== teacherId.toString() &&
+                !classDetails.subjects.some(subject => subject.teacher &&
+                    subject.teacher.toString() === teacherId.toString())) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You are not authorized to create announcements for this class'
                 });
             }
 
@@ -476,8 +477,8 @@ const teacherCtrl = {
                 return res.status(404).json({ success: false, message: 'Class not found' });
             }
 
-            const hasAccess = classDetails.subjects.some(subject => 
-                subject._id.toString() === subjectId && 
+            const hasAccess = classDetails.subjects.some(subject =>
+                subject._id.toString() === subjectId &&
                 subject.teacher.toString() === teacherId.toString()
             );
 

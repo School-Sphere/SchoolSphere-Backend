@@ -4,7 +4,7 @@ const { createMulterUpload } = require("../middlewares");
 const teacherAuth = require("../middlewares/teacher");
 const teacherRouter = express.Router();
 
-teacherRouter.post("/create-assignment", teacherAuth, createMulterUpload('Assignments', 'content'), teacherCtrl.createAssignment);
+teacherRouter.post("/create-assignment", teacherAuth, createMulterUpload('assignments', 'file', {}), teacherCtrl.createAssignment);
 teacherRouter.get("/teacher/get-assignments", teacherAuth, teacherCtrl.getAssignments);
 teacherRouter.post("/assign-assignment", teacherAuth, teacherCtrl.assignAssignment);
 teacherRouter.post("/mark-all-present", teacherAuth, teacherCtrl.markAllPresent);

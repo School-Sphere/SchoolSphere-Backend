@@ -36,13 +36,13 @@ const schoolCtrl = {
                 address,
                 profilePic
             } = req.body;
-    
+
             const schoolCode = req.school.schoolCode;
-    
+
             if (!studentId || !name || !email || !classId) {
                 return next(new ErrorHandler(400, "Missing required fields: studentId, name, email, or classId"));
             }
-    
+
             let existingStudent = await Student.findOne({
                 $or: [{ email }, { studentId }],
                 schoolCode
@@ -55,15 +55,15 @@ const schoolCtrl = {
                     return next(new ErrorHandler(400, "Student ID already exists in this school"));
                 }
             }
-    
+
             const studentClass = await Class.findOne({ _id: classId, schoolCode }).session(session);
             if (!studentClass) {
                 return next(new ErrorHandler(400, "Class not found or does not belong to this school"));
             }
-    
+
             const password = generatePassword();
             const hashedPassword = await bcrypt.hash(password, parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 8);
-    
+
             const newStudent = new Student({
                 studentId,
                 name,
@@ -85,18 +85,18 @@ const schoolCtrl = {
                 role: 'student',
                 schoolCode
             });
-    
+
             studentClass.students.push(newStudent._id);
             await studentClass.save({ session });
             await newStudent.save({ session });
-    
+
             if (studentClass.chatRoomId) {
                 const room = await Room.findById(studentClass.chatRoomId);
                 if (room) {
                     await room.addMember(newStudent._id, 'student');
                 }
             }
-    
+
             const newUser = new User({
                 _id: newStudent._id,
                 name,
@@ -106,9 +106,9 @@ const schoolCtrl = {
                 schoolCode
             });
             await newUser.save({ session });
-    
+
             await sendEmailSchool(email, schoolCode, password, "Student Added");
-    
+
             await session.commitTransaction();
             res.status(201).json({
                 success: true,
@@ -121,7 +121,113 @@ const schoolCtrl = {
         } finally {
             session.endSession();
         }
-    },    
+    },
+
+    updateStudent: async (req, res, next) => {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        try {
+            const {
+                studentId,
+                name,
+                email,
+                gender,
+                classId,
+                dob,
+                bloodGroup,
+                religion,
+                doa,
+                fatherName,
+                motherName,
+                parentEmail,
+                parentContact,
+                fatherOccupation,
+                address,
+                profilePic
+            } = req.body;
+
+            const schoolCode = req.school.schoolCode;
+
+            if (!studentId) {
+                return next(new ErrorHandler(400, "Missing required parameter: studentId"));
+            }
+            console.log("studentId", studentId, "schoolCode", schoolCode);
+
+            const existingStudent = await Student.findOne({ studentId: studentId, schoolCode }).session(session);
+            if (!existingStudent) {
+                return next(new ErrorHandler(404, "Student not found"));
+            }
+
+            if (email && email !== existingStudent.email) {
+                const emailExists = await Student.findOne({ email, schoolCode }).session(session);
+                if (emailExists) {
+                    return next(new ErrorHandler(400, "Email already exists for another student in this school"));
+                }
+            }
+
+            if (classId && classId !== existingStudent.classId) {
+                const newClass = await Class.findOne({ _id: classId, schoolCode }).session(session);
+                if (!newClass) {
+                    return next(new ErrorHandler(400, "Class not found or does not belong to this school"));
+                }
+
+                // Remove the student from the old class
+                const oldClass = await Class.findById(existingStudent.classId).session(session);
+                if (oldClass) {
+                    oldClass.students.pull(existingStudent._id);
+                    await oldClass.save({ session });
+                }
+
+                // Add the student to the new class
+                newClass.students.push(existingStudent._id);
+                await newClass.save({ session });
+
+                existingStudent.classId = classId;
+            }
+
+            // Update other fields
+            Object.assign(existingStudent, {
+                name: name || existingStudent.name,
+                email: email || existingStudent.email,
+                gender: gender || existingStudent.gender,
+                dob: dob || existingStudent.dob,
+                bloodGroup: bloodGroup || existingStudent.bloodGroup,
+                religion: religion || existingStudent.religion,
+                doa: doa || existingStudent.doa,
+                fatherName: fatherName || existingStudent.fatherName,
+                motherName: motherName || existingStudent.motherName,
+                parentEmail: parentEmail || existingStudent.parentEmail,
+                parentContact: parentContact || existingStudent.parentContact,
+                fatherOccupation: fatherOccupation || existingStudent.fatherOccupation,
+                address: address || existingStudent.address,
+                profilePicture: profilePic || existingStudent.profilePicture,
+            });
+
+            await existingStudent.save({ session });
+
+            // If the email was updated, ensure the associated User document is updated
+            if (email && email !== existingStudent.email) {
+                const user = await User.findById(existingStudent._id).session(session);
+                if (user) {
+                    user.email = email;
+                    user.name = name || user.name;
+                    await user.save({ session });
+                }
+            }
+
+            await session.commitTransaction();
+            res.status(200).json({
+                success: true,
+                message: "Student updated successfully",
+                data: existingStudent,
+            });
+        } catch (err) {
+            await session.abortTransaction();
+            next(err);
+        } finally {
+            session.endSession();
+        }
+    },
 
     deleteSchool: async (req, res, next) => {
         try {
@@ -591,30 +697,30 @@ const schoolCtrl = {
         try {
             const schoolCode = req.school.schoolCode;
             const { page = 1, limit = 10 } = req.query;
-    
+
             if (isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
                 return next(new ErrorHandler(400, "Invalid pagination parameters"));
             }
-    
+
             const query = { schoolCode };
-    
+
             const options = {
                 page: parseInt(page),
                 limit: parseInt(limit),
-                sort: { name: 1 }, 
+                sort: { name: 1 },
                 populate: {
-                    path: 'classId', 
+                    path: 'classId',
                     select: 'name section',
                     transform: (doc) => ({
                         className: doc.name,
                         section: doc.section
                     })
                 },
-                select: '_id studentId name gender parentContact' 
+                select: '_id studentId name gender parentContact'
             };
-    
+
             const students = await Student.paginate(query, options);
-    
+
             const formattedData = students.docs.map(student => ({
                 id: student._id,
                 studentId: student.studentId,
@@ -624,7 +730,7 @@ const schoolCtrl = {
                 className: student.classId?.className || null,
                 section: student.classId?.section || null
             }));
-    
+
             res.status(200).json({
                 success: true,
                 data: {
@@ -641,38 +747,38 @@ const schoolCtrl = {
                 }
             });
         } catch (err) {
-            next(err); 
+            next(err);
         }
-    },    
-    
+    },
+
     getAllTeachers: async (req, res, next) => {
         try {
             const schoolCode = req.school.schoolCode;
             const { page = 1, limit = 10 } = req.query;
-    
+
             if (isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
                 return next(new ErrorHandler(400, "Invalid pagination parameters"));
             }
-    
+
             const query = { schoolCode };
-    
+
             const options = {
                 page: parseInt(page),
                 limit: parseInt(limit),
-                sort: { name: 1 }, 
+                sort: { name: 1 },
                 populate: {
-                    path: 'assignedClass', 
-                    select: 'name section', 
+                    path: 'assignedClass',
+                    select: 'name section',
                     transform: (doc) => ({
                         className: doc.name,
                         section: doc.section
-                    }) 
+                    })
                 },
-                select: '_id teacherId name gender contactNumber assignedClass' 
+                select: '_id teacherId name gender contactNumber assignedClass'
             };
-    
+
             const teachers = await Teacher.paginate(query, options);
-    
+
             const formattedData = teachers.docs.map(teacher => ({
                 id: teacher._id,
                 teacherId: teacher.teacherId,
@@ -682,7 +788,7 @@ const schoolCtrl = {
                 className: teacher.assignedClass?.className || null,
                 section: teacher.assignedClass?.section || null
             }));
-    
+
             res.status(200).json({
                 success: true,
                 data: {
@@ -699,36 +805,36 @@ const schoolCtrl = {
                 }
             });
         } catch (err) {
-            next(err); 
+            next(err);
         }
-    },    
+    },
 
     getAllClasses: async (req, res, next) => {
         try {
             const schoolCode = req.school.schoolCode;
             const { page = 1, limit = 10 } = req.query;
-    
+
             if (isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
                 return next(new ErrorHandler(400, "Invalid pagination parameters"));
             }
-    
+
             const query = { schoolCode };
-    
+
             const options = {
                 page: parseInt(page),
                 limit: parseInt(limit),
                 sort: { name: 1, section: 1 },
                 select: '_id name section'
             };
-    
+
             const classes = await Class.paginate(query, options);
-    
+
             const formattedData = classes.docs.map(classItem => ({
                 id: classItem._id,
                 className: classItem.name,
                 section: classItem.section
             }));
-    
+
             res.status(200).json({
                 success: true,
                 data: {
@@ -747,7 +853,7 @@ const schoolCtrl = {
         } catch (err) {
             next(err);
         }
-    }    
+    }
 };
 
 module.exports = schoolCtrl;

@@ -4,6 +4,8 @@ const { schoolAuth } = require("../middlewares");
 const schoolRouter = express.Router();
 
 schoolRouter.post("/add-student", schoolAuth, schoolCtrl.addStudent);
+schoolRouter.patch("/update-student", schoolAuth, schoolCtrl.updateStudent);
+
 schoolRouter.post("/add-class", schoolAuth, schoolCtrl.addClass);
 schoolRouter.post("/add-teacher", schoolAuth, schoolCtrl.addTeacher);
 schoolRouter.post("/update-class-teacher", schoolAuth, schoolCtrl.updateClassTeacher);
