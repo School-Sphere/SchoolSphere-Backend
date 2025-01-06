@@ -362,10 +362,10 @@ const schoolCtrl = {
         const session = await mongoose.startSession();
         session.startTransaction();
         try {
-            const { title, description, time, venue } = req.body;
+            const { title, description, time, venue, date} = req.body;
             const schoolCode = req.school.schoolCode;
 
-            if (!title || !description || !time || !venue) {
+            if (!title || !date || !time || !venue) {
                 return next(new ErrorHandler(400, "Please provide all required fields"));
             }
 
@@ -374,7 +374,7 @@ const schoolCtrl = {
                 description,
                 time: new Date(time),
                 venue,
-                createdBy: req.school._id,
+                date: new Date(date),
                 schoolCode
             });
 
@@ -398,28 +398,24 @@ const schoolCtrl = {
         try {
             const schoolCode = req.school.schoolCode;
             const { page = 1, limit = 10, startDate, endDate } = req.query;
-
+    
             const query = { schoolCode };
-
+    
             if (startDate && endDate) {
                 query.time = {
                     $gte: new Date(startDate),
                     $lte: new Date(endDate)
                 };
             }
-
+    
             const options = {
-                page: parseInt(page),
-                limit: parseInt(limit),
-                sort: { time: 1 },
-                populate: {
-                    path: 'createdBy',
-                    select: 'name email'
-                }
+                page: parseInt(page, 10),
+                limit: parseInt(limit, 10),
+                sort: { time: 1 }, // Sort by time in ascending order
             };
-
+    
             const events = await Event.paginate(query, options);
-
+    
             res.status(200).json({
                 success: true,
                 data: events
@@ -428,7 +424,7 @@ const schoolCtrl = {
             next(err);
         }
     },
-
+    
     updateClassTeacher: async (req, res, next) => {
         const session = await mongoose.startSession();
         session.startTransaction();
@@ -715,10 +711,14 @@ const schoolCtrl = {
             const query = { schoolCode };
     
             const options = {
-                page: parseInt(page),
-                limit: parseInt(limit),
+                page: parseInt(page, 10),
+                limit: parseInt(limit, 10),
                 sort: { name: 1, section: 1 },
-                select: '_id name section'
+                populate: {
+                    path: 'classTeacher', // Populate the classTeacher field
+                    select: 'name', // Include only the name of the classTeacher
+                },
+                select: '_id name section students classTeacher',
             };
     
             const classes = await Class.paginate(query, options);
@@ -726,7 +726,9 @@ const schoolCtrl = {
             const formattedData = classes.docs.map(classItem => ({
                 id: classItem._id,
                 className: classItem.name,
-                section: classItem.section
+                section: classItem.section,
+                classTeacher: classItem.classTeacher ? classItem.classTeacher.name : null, // Get classTeacher name or null
+                totalStudents: classItem.students.length, // Calculate the total number of students
             }));
     
             res.status(200).json({
@@ -741,11 +743,11 @@ const schoolCtrl = {
                     hasPrevPage: classes.hasPrevPage,
                     hasNextPage: classes.hasNextPage,
                     prevPage: classes.prevPage,
-                    nextPage: classes.nextPage
-                }
+                    nextPage: classes.nextPage,
+                },
             });
         } catch (err) {
-            next(err);
+            next(err); // Pass errors to the error-handling middleware
         }
     }    
 };
