@@ -468,10 +468,10 @@ const schoolCtrl = {
         const session = await mongoose.startSession();
         session.startTransaction();
         try {
-            const { title, description, time, venue } = req.body;
+            const { title, description, time, venue, date } = req.body;
             const schoolCode = req.school.schoolCode;
 
-            if (!title || !description || !time || !venue) {
+            if (!title || !date || !time || !venue) {
                 return next(new ErrorHandler(400, "Please provide all required fields"));
             }
 
@@ -480,7 +480,7 @@ const schoolCtrl = {
                 description,
                 time: new Date(time),
                 venue,
-                createdBy: req.school._id,
+                date: new Date(date),
                 schoolCode
             });
 
@@ -515,13 +515,9 @@ const schoolCtrl = {
             }
 
             const options = {
-                page: parseInt(page),
-                limit: parseInt(limit),
-                sort: { time: 1 },
-                populate: {
-                    path: 'createdBy',
-                    select: 'name email'
-                }
+                page: parseInt(page, 10),
+                limit: parseInt(limit, 10),
+                sort: { time: 1 }, // Sort by time in ascending order
             };
 
             const events = await Event.paginate(query, options);
@@ -821,10 +817,14 @@ const schoolCtrl = {
             const query = { schoolCode };
 
             const options = {
-                page: parseInt(page),
-                limit: parseInt(limit),
+                page: parseInt(page, 10),
+                limit: parseInt(limit, 10),
                 sort: { name: 1, section: 1 },
-                select: '_id name section'
+                populate: {
+                    path: 'classTeacher', // Populate the classTeacher field
+                    select: 'name', // Include only the name of the classTeacher
+                },
+                select: '_id name section students classTeacher',
             };
 
             const classes = await Class.paginate(query, options);
@@ -832,7 +832,9 @@ const schoolCtrl = {
             const formattedData = classes.docs.map(classItem => ({
                 id: classItem._id,
                 className: classItem.name,
-                section: classItem.section
+                section: classItem.section,
+                classTeacher: classItem.classTeacher ? classItem.classTeacher.name : null, // Get classTeacher name or null
+                totalStudents: classItem.students.length, // Calculate the total number of students
             }));
 
             res.status(200).json({
@@ -847,8 +849,134 @@ const schoolCtrl = {
                     hasPrevPage: classes.hasPrevPage,
                     hasNextPage: classes.hasNextPage,
                     prevPage: classes.prevPage,
-                    nextPage: classes.nextPage
-                }
+                    nextPage: classes.nextPage,
+                },
+            });
+        } catch (err) {
+            next(err); // Pass errors to the error-handling middleware
+        }
+    },
+
+    getStudentByStudentId: async (req, res, next) => {
+        try {
+            const { studentId } = req.params;
+            const schoolCode = req.school.schoolCode;
+
+            if (!studentId) {
+                return next(new ErrorHandler(400, "Student ID is required"));
+            }
+
+            const student = await Student.findOne({ studentId, schoolCode })
+                .populate({
+                    path: 'classId',
+                    select: 'name section',
+                    transform: (doc) => ({
+                        className: doc.name,
+                        section: doc.section
+                    })
+                })
+                .select('_id studentId name gender parentContact email dob bloodGroup religion doa fatherName motherName parentEmail address fatherOccupation motherOccupation profilePicture');
+
+            if (!student) {
+                return next(new ErrorHandler(404, "Student not found"));
+            }
+
+            const formattedData = {
+                id: student._id,
+                studentId: student.studentId,
+                name: student.name,
+                gender: student.gender,
+                parentContact: student.parentContact,
+                email: student.email,
+                dob: student.dob,
+                bloodGroup: student.bloodGroup,
+                religion: student.religion,
+                doa: student.doa,
+                fatherName: student.fatherName,
+                motherName: student.motherName,
+                parentEmail: student.parentEmail,
+                address: student.address,
+                className: student.classId?.className || null,
+                section: student.classId?.section || null,
+                fatherOccupation: student.fatherOccupation,
+                motherOccupation: student.motherOccupation,
+                profilePicture: student.profilePicture
+            };
+
+            res.status(200).json({
+                success: true,
+                data: formattedData
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getTeacherByTeacherId: async (req, res, next) => {
+        try {
+            const { teacherId } = req.params;
+            const schoolCode = req.school.schoolCode;
+
+            if (!teacherId) {
+                return next(new ErrorHandler(400, "Teacher ID is required"));
+            }
+
+            const teacher = await Teacher.findOne({ teacherId, schoolCode })
+                .populate({
+                    path: 'assignedClass',
+                    select: 'name section',
+                    transform: (doc) => ({
+                        className: doc.name,
+                        section: doc.section
+                    })
+                })
+                .select('_id teacherId name gender contactNumber email designation qualifications address dob bloodGroup religion doj');
+
+            if (!teacher) {
+                return next(new ErrorHandler(404, "Teacher not found"));
+            }
+
+            const formattedData = {
+                id: teacher._id,
+                teacherId: teacher.teacherId,
+                name: teacher.name,
+                gender: teacher.gender,
+                contactNumber: teacher.contactNumber,
+                email: teacher.email,
+                designation: teacher.designation,
+                qualifications: teacher.qualifications,
+                address: teacher.address,
+                className: teacher.assignedClass?.className || null,
+                section: teacher.assignedClass?.section || null,
+                dob: teacher.dob,
+                bloodGroup: teacher.bloodGroup,
+                religion: teacher.religion,
+                doj: teacher.doj
+            };
+
+            res.status(200).json({
+                success: true,
+                data: formattedData
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getSchoolDetails: async (req, res, next) => {
+        try {
+            const schoolCode = req.school.schoolCode;
+
+            const school = await School.findOne({ schoolCode })
+                .select('name address email schoolCode -_id');
+
+            if (!school) {
+                return next(new ErrorHandler(404, "School not found"));
+            }
+
+            res.status(200).json({
+                success: true,
+                data: school
             });
         } catch (err) {
             next(err);

@@ -426,38 +426,38 @@ const teacherCtrl = {
         try {
             const { page = 1, limit = 10, startDate, endDate } = req.query;
             const schoolCode = req.teacher.schoolCode;
-
+    
             const query = { schoolCode };
-
+    
             if (startDate && endDate) {
                 query.time = {
                     $gte: new Date(startDate),
                     $lte: new Date(endDate)
                 };
             }
-
-            const skip = (page - 1) * limit;
-
-            const events = await Event.find(query)
-                .sort({ time: 1 })
-                .skip(skip)
-                .limit(parseInt(limit));
-
-            const total = await Event.countDocuments(query);
-
-            res.json({
+    
+            const options = {
+                page: parseInt(page, 10),
+                limit: parseInt(limit, 10),
+                sort: { time: 1 } // Sort events by time in ascending order
+            };
+    
+            const events = await Event.paginate(query, options);
+    
+            res.status(200).json({
                 success: true,
-                data: events,
+                data: events.docs, // Include the list of events
                 pagination: {
-                    total,
-                    page: parseInt(page),
-                    pages: Math.ceil(total / limit)
+                    total: events.totalDocs, // Total number of documents
+                    page: events.page, // Current page
+                    pages: events.totalPages // Total number of pages
                 }
             });
         } catch (err) {
-            next(err);
+            next(err); // Pass errors to the error-handling middleware
         }
-    },
+    },    
+
     uploadCourseMaterial: async (req, res, next) => {
         try {
             const { title, description, classId, subjectId } = req.body;

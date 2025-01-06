@@ -18,6 +18,10 @@ schoolRouter.get("/announcements", schoolAuth, schoolCtrl.getSchoolAnnouncements
 schoolRouter.post("/events", schoolAuth, schoolCtrl.createEvent);
 schoolRouter.get("/events", schoolAuth, schoolCtrl.getEvents);
 
+schoolRouter.get("/student/:studentId", schoolAuth, schoolCtrl.getStudentByStudentId);
+schoolRouter.get("/teacher/:teacherId", schoolAuth, schoolCtrl.getTeacherByTeacherId);
+schoolRouter.get("/school-details", schoolAuth, schoolCtrl.getSchoolDetails);
+
 schoolRouter.get("/students", schoolAuth, schoolCtrl.getAllStudents);
 schoolRouter.get("/teachers", schoolAuth, schoolCtrl.getAllTeachers);
 schoolRouter.get("/classes", schoolAuth, schoolCtrl.getAllClasses);
