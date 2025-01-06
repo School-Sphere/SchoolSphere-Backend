@@ -36,13 +36,17 @@ const studentCtrl = {
         try {
             const studentId = req.student._id;
             const student = await Student.findById(studentId);
-            const assignmentData = student.pendingAssignments;
-            if (!assignmentData) {
-                return next(new ErrorHandler(404, "Assignment data not found"));
+            if (!student) {
+                return next(new ErrorHandler(404, "Student data not found"));
             }
+            const pendingAssignments = student.pendingAssignments;
+            const submittedAssignments = student.submittedAssignments;
             res.status(200).json({
                 success: true,
-                data: assignmentData
+                data: {
+                    "pendingAssignments": pendingAssignments,
+                    "submittedAssignments": submittedAssignments
+                }
             });
         }
         catch (err) {
@@ -68,6 +72,7 @@ const studentCtrl = {
     },
 
     submitAssignment: async (req, res, next) => {
+        console.log("submitAssignment");
         try {
             const assignmentId = req.params.assignmentId;
             const studentId = req.student._id;
@@ -201,26 +206,26 @@ const studentCtrl = {
     getStudentEvents: async (req, res, next) => {
         try {
             const { startDate, endDate, page = 1, limit = 10 } = req.query;
-    
+
             const query = {
                 schoolCode: req.student.schoolCode // Fetch events by student's schoolCode
             };
-    
+
             if (startDate && endDate) {
                 query.time = {
                     $gte: new Date(startDate),
                     $lte: new Date(endDate)
                 };
             }
-    
+
             const options = {
                 page: parseInt(page, 10),
                 limit: parseInt(limit, 10),
                 sort: { time: 1 } // Sort events by time in ascending order
             };
-    
+
             const events = await Event.paginate(query, options);
-    
+
             res.status(200).json({
                 success: true,
                 data: events.docs, // Include the list of events
@@ -233,8 +238,8 @@ const studentCtrl = {
         } catch (err) {
             next(err); // Pass errors to the error-handling middleware
         }
-    },    
-    
+    },
+
     getSubmittedAssignments: async (req, res, next) => {
         try {
             const studentId = req.student._id;
