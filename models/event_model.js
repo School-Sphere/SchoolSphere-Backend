@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const eventSchema = new mongoose.Schema({
   title: {
@@ -8,7 +9,6 @@ const eventSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: true
   },
   time: {
     type: Date,
@@ -19,9 +19,8 @@ const eventSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'School',
+  date: {
+    type: Date,
     required: true
   },
   schoolCode: {
@@ -36,6 +35,7 @@ const eventSchema = new mongoose.Schema({
 eventSchema.index({ schoolCode: 1, time: 1 });
 eventSchema.index({ time: 1 });
 
+eventSchema.plugin(mongoosePaginate);
 const Event = mongoose.model('Event', eventSchema);
 
 module.exports = {

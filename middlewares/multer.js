@@ -8,9 +8,10 @@ const ALLOWED_FILE_TYPES = {
 };
 
 const MAX_FILE_SIZES = {
-    courseMaterial: 25 * 1024 * 1024, // 25MB for course materials
-    assignment: 10 * 1024 * 1024 // 10MB for assignments
+    courseMaterial: 25 * 1024 * 1024,
+    assignment: 10 * 1024 * 1024
 };
+
 function createMulterUpload(reqPath, parameterName, options = {}) {
     const { fileType = 'assignment' } = options;
 
@@ -26,7 +27,6 @@ function createMulterUpload(reqPath, parameterName, options = {}) {
     const storage = multer.diskStorage({
         destination: function (_req, _file, cb) {
             const uploadPath = path.join('public', reqPath);
-
             fs.mkdir(uploadPath, { recursive: true }, (err) => {
                 if (err) {
                     return cb(err);
@@ -36,7 +36,9 @@ function createMulterUpload(reqPath, parameterName, options = {}) {
         },
         filename: function (req, file, cb) {
             const uniqueSuffix = req.body.teacherId + '-' + Date.now() + '-' + file.originalname;
-            cb(null, file.fieldname + '-' + uniqueSuffix);
+            const filename = file.fieldname + '-' + uniqueSuffix;
+            console.log(`Generated filename: ${filename}`);
+            cb(null, filename);
         }
     });
 
@@ -47,7 +49,6 @@ function createMulterUpload(reqPath, parameterName, options = {}) {
             fileSize: MAX_FILE_SIZES[fileType]
         }
     });
-
     return upload.single(parameterName);
 }
 

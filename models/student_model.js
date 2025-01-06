@@ -56,17 +56,15 @@ const studentSchema = new mongoose.Schema({
   profilePicture: {
     type: String,
   },
-  attendance: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Attendance'
-  }],
   pendingAssignments: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'StudentAssignment'
+    ref: 'StudentAssignment',
+    default: []
   }],
   submittedAssignments: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'StudentAssignment'
+    ref: 'StudentAssignment',
+    default: []
   }],
   payments: [{
     type: mongoose.Schema.Types.ObjectId,

@@ -201,45 +201,40 @@ const studentCtrl = {
     getStudentEvents: async (req, res, next) => {
         try {
             const { startDate, endDate, page = 1, limit = 10 } = req.query;
-
-            // Build query for events in student's school
+    
             const query = {
-                schoolCode: req.student.schoolCode
+                schoolCode: req.student.schoolCode // Fetch events by student's schoolCode
             };
-
-            // Add date range filter if provided
+    
             if (startDate && endDate) {
                 query.time = {
                     $gte: new Date(startDate),
                     $lte: new Date(endDate)
                 };
             }
-
-            const skip = (page - 1) * limit;
-
-            // Fetch events with pagination
-            const events = await Event.find(query)
-                .populate('createdBy', 'name email')
-                .sort({ time: 1 })
-                .skip(skip)
-                .limit(parseInt(limit));
-
-            const total = await Event.countDocuments(query);
-
+    
+            const options = {
+                page: parseInt(page, 10),
+                limit: parseInt(limit, 10),
+                sort: { time: 1 } // Sort events by time in ascending order
+            };
+    
+            const events = await Event.paginate(query, options);
+    
             res.status(200).json({
                 success: true,
-                data: events,
+                data: events.docs, // Include the list of events
                 pagination: {
-                    total,
-                    page: parseInt(page),
-                    pages: Math.ceil(total / limit)
+                    total: events.totalDocs, // Total number of documents
+                    page: events.page, // Current page
+                    pages: events.totalPages // Total number of pages
                 }
             });
         } catch (err) {
-            next(err);
+            next(err); // Pass errors to the error-handling middleware
         }
-    },
-
+    },    
+    
     getSubmittedAssignments: async (req, res, next) => {
         try {
             const studentId = req.student._id;

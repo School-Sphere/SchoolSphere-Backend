@@ -4,6 +4,8 @@ const { schoolAuth } = require("../middlewares");
 const schoolRouter = express.Router();
 
 schoolRouter.post("/add-student", schoolAuth, schoolCtrl.addStudent);
+schoolRouter.patch("/update-student", schoolAuth, schoolCtrl.updateStudent);
+
 schoolRouter.post("/add-class", schoolAuth, schoolCtrl.addClass);
 schoolRouter.post("/add-teacher", schoolAuth, schoolCtrl.addTeacher);
 schoolRouter.post("/update-class-teacher", schoolAuth, schoolCtrl.updateClassTeacher);
@@ -15,6 +17,10 @@ schoolRouter.get("/announcements", schoolAuth, schoolCtrl.getSchoolAnnouncements
 
 schoolRouter.post("/events", schoolAuth, schoolCtrl.createEvent);
 schoolRouter.get("/events", schoolAuth, schoolCtrl.getEvents);
+
+schoolRouter.get("/student/:studentId", schoolAuth, schoolCtrl.getStudentByStudentId);
+schoolRouter.get("/teacher/:teacherId", schoolAuth, schoolCtrl.getTeacherByTeacherId);
+schoolRouter.get("/school-details", schoolAuth, schoolCtrl.getSchoolDetails);
 
 schoolRouter.get("/students", schoolAuth, schoolCtrl.getAllStudents);
 schoolRouter.get("/teachers", schoolAuth, schoolCtrl.getAllTeachers);
