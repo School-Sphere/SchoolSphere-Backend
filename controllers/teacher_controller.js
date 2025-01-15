@@ -260,7 +260,7 @@ const teacherCtrl = {
             }
     
             const classDetails = await Class.findById(classId)
-                .populate('students', 'name studentId gender')
+                .populate('students', 'name studentId gender profilePicture')
                 .select('name section students');
     
             if (!classDetails) {
