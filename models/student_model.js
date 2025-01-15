@@ -13,6 +13,12 @@ const studentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Class'
   },
+  className: {
+    type: String,
+  },
+  rollNumber: {
+    type: String, 
+  },
   dob: {
     type: Date,
   },
@@ -22,70 +28,40 @@ const studentSchema = new mongoose.Schema({
   session: {
     type: String,
   },
-  fatherName: {
+  parentEmail: {
     type: String,
   },
   motherName: {
     type: String,
   },
-  parentEmail: {
+  fatherName: {
     type: String,
   },
   address: {
-    type: String,
+    type: String, // e.g., Permanent Address
   },
   gender: {
     type: String,
   },
   parentContact: {
-    type: String,
-  },
-  fatherOccupation: {
-    type: String,
-  },
-  motherOccupation: {
-    type: String,
-  },
-  attendance: [attendanceSchema],
-  religion: {
-    type: String,
-  },
-  bloodGroup: {
-    type: String
+    type: String, // Parent contact number
   },
   profilePicture: {
-    type: String,
+    type: String, // URL or base64 of the profile picture
   },
-  pendingAssignments: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'StudentAssignment',
-    default: []
-  }],
-  submittedAssignments: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'StudentAssignment',
-    default: []
-  }],
+  attendance: [attendanceSchema],
   payments: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Payment',
   }],
-  schoolCode: { type: String, required: true },
-});
-
-studentSchema.virtual('submittedAssignmentDetails', {
-  ref: 'Submission',
-  localField: '_id',
-  foreignField: 'studentId',
-  options: { sort: { submissionDate: -1 } },
-  match: function () {
-    return { studentId: this._id };
+  schoolCode: {
+    type: String,
+    required: true,
   }
 });
 
 studentSchema.plugin(mongoosePaginate);
 
 studentSchema.index({ schoolCode: 1, studentId: 1 }, { unique: true });
-
 
 module.exports = mongoose.model('Student', studentSchema);

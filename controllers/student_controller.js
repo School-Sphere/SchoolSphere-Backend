@@ -11,6 +11,7 @@ const submissionSchema = require("../models/assignment_submition_model");
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const StudentModel = require('../models/student_model');
+const CourseMaterial = require("../models/course_material_model");
 
 require("dotenv").config();
 
@@ -149,11 +150,11 @@ const studentCtrl = {
             const studentId = req.student._id;
             const { startDate, endDate, page = 1, limit = 10 } = req.query;
 
-            // Get student's class
+
             const student = await Student.findById(studentId);
             const classId = student.classId;
 
-            // Build query for both school-wide and class-specific announcements
+
             const query = {
                 $or: [
                     {
@@ -169,7 +170,7 @@ const studentCtrl = {
                 schoolCode: req.student.schoolCode
             };
 
-            // Add date range filter if provided
+
             if (startDate && endDate) {
                 query.createdAt = {
                     $gte: new Date(startDate),
@@ -179,7 +180,7 @@ const studentCtrl = {
 
             const skip = (page - 1) * limit;
 
-            // Fetch announcements with pagination
+
             const announcements = await Announcement.find(query)
                 .populate('createdBy', 'name email')
                 .populate('targetClass', 'name section')
@@ -208,7 +209,7 @@ const studentCtrl = {
             const { startDate, endDate, page = 1, limit = 10 } = req.query;
 
             const query = {
-                schoolCode: req.student.schoolCode // Fetch events by student's schoolCode
+                schoolCode: req.student.schoolCode
             };
 
             if (startDate && endDate) {
@@ -221,22 +222,22 @@ const studentCtrl = {
             const options = {
                 page: parseInt(page, 10),
                 limit: parseInt(limit, 10),
-                sort: { time: 1 } // Sort events by time in ascending order
+                sort: { time: 1 }
             };
 
             const events = await Event.paginate(query, options);
 
             res.status(200).json({
                 success: true,
-                data: events.docs, // Include the list of events
+                data: events.docs,
                 pagination: {
-                    total: events.totalDocs, // Total number of documents
-                    page: events.page, // Current page
-                    pages: events.totalPages // Total number of pages
+                    total: events.totalDocs,
+                    page: events.page,
+                    pages: events.totalPages
                 }
             });
         } catch (err) {
-            next(err); // Pass errors to the error-handling middleware
+            next(err);
         }
     },
 
@@ -245,12 +246,12 @@ const studentCtrl = {
             const studentId = req.student._id;
             const { startDate, endDate, page = 1, limit = 10 } = req.query;
 
-            // Build base query for submissions
+
             const query = {
                 studentId: studentId
             };
 
-            // Add date range filter if provided
+
             if (startDate && endDate) {
                 query.submissionDate = {
                     $gte: new Date(startDate),
@@ -260,7 +261,7 @@ const studentCtrl = {
 
             const skip = (page - 1) * limit;
 
-            // Fetch submissions with pagination and join with assignment details
+
             const submissions = await submissionSchema.find(query)
                 .populate({
                     path: 'assignmentId',
@@ -286,6 +287,31 @@ const studentCtrl = {
             next(err);
         }
     },
+
+    getCourseMaterials: async (req, res, next) => {
+        try {
+            const studentId = req.student._id;
+            const student = await StudentModel.findById(studentId);
+            const classId = student.classId;
+            const courseMaterials = await CourseMaterial.findOne({ "classId": classId, "schoolCode": student.schoolCode });
+            console.log(courseMaterials);
+            res.status(200).json({
+                success: true,
+                data: courseMaterials
+            });
+        } catch (err) {
+            next(err);All
+            Videos
+            Images
+            News
+            Shopping
+            Web
+            Books
+            More
+            Tools
+            
+        }
+    }
 };
 
 module.exports = studentCtrl;
