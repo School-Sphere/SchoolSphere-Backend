@@ -254,31 +254,91 @@ const teacherCtrl = {
         try {
             const teacherId = req.teacher._id;
             const { classId } = req.params;
-
+    
             if (!classId) {
                 return res.status(400).json({ success: false, message: 'Class ID is required' });
             }
-
+    
             const classDetails = await Class.findById(classId)
-                .populate('students', 'name rollNumber email')
-                .populate('classTeacher', 'name email')
-                .select('name section students subjects timetable');
-
+                .populate('students', 'name studentId gender')
+                .select('name section students');
+    
             if (!classDetails) {
                 return res.status(404).json({ success: false, message: 'Class not found' });
             }
-
+    
             // Verify if teacher has access to this class
-            if (classDetails.classTeacher._id.toString() !== teacherId.toString() &&
+            if (classDetails.classTeacher && classDetails.classTeacher.toString() !== teacherId.toString() &&
                 !classDetails.subjects.some(subject => subject.teacher && subject.teacher.toString() === teacherId.toString())) {
                 return res.status(403).json({ success: false, message: 'You do not have access to this class' });
             }
-
-            res.json({ success: true, data: classDetails });
+    
+            const responseData = {
+                _id: classDetails._id,
+                name: classDetails.name,
+                section: classDetails.section,
+                students: classDetails.students
+            };
+    
+            res.json({ success: true, data: responseData });
         } catch (err) {
             next(err);
         }
     },
+
+    getStudentDetails: async (req, res, next) => {
+        try {
+            const { studentId } = req.params;
+    
+            if (!studentId) {
+                return next(new ErrorHandler(400, "Student ID is required"));
+            }
+    
+            const student = await studentSchema.findOne({ studentId })
+                .populate({
+                    path: 'classId',
+                    select: 'name section',
+                    transform: (doc) => ({
+                        className: doc.name,
+                        section: doc.section
+                    })
+                })
+                .select('_id studentId name gender parentContact email dob bloodGroup religion doa fatherName motherName parentEmail address fatherOccupation motherOccupation profilePicture');
+    
+            if (!student) {
+                return next(new ErrorHandler(404, "Student not found"));
+            }
+    
+            const formattedData = {
+                id: student._id,
+                studentId: student.studentId,
+                name: student.name,
+                gender: student.gender,
+                parentContact: student.parentContact,
+                email: student.email,
+                dob: student.dob,
+                bloodGroup: student.bloodGroup,
+                religion: student.religion,
+                doa: student.doa,
+                fatherName: student.fatherName,
+                motherName: student.motherName,
+                parentEmail: student.parentEmail,
+                address: student.address,
+                className: student.classId?.className || null,
+                section: student.classId?.section || null,
+                fatherOccupation: student.fatherOccupation,
+                motherOccupation: student.motherOccupation,
+                profilePicture: student.profilePicture
+            };
+    
+            res.status(200).json({
+                success: true,
+                data: formattedData
+            });
+        } catch (err) {
+            next(err);
+        }
+    },    
 
     createClassAnnouncement: async (req, res, next) => {
         try {

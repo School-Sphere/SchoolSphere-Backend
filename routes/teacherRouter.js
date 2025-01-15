@@ -16,6 +16,7 @@ teacherRouter.patch("/update-timetable", teacherAuth, teacherCtrl.updateTimeTabl
 teacherRouter.get("/teacher", teacherAuth, teacherCtrl.getTeacher);
 teacherRouter.get("/teacher/classes", teacherAuth, teacherCtrl.getTeacherClasses);
 teacherRouter.get("/teacher/classes/:classId", teacherAuth, teacherCtrl.getClassDetails);
+teacherRouter.get("/teacher/students/:studentId", teacherAuth, teacherCtrl.getStudentDetails);
 teacherRouter.post("/class/:classId/announcement", teacherAuth, teacherCtrl.createClassAnnouncement);
 teacherRouter.get("/class/:classId/announcements", teacherAuth, teacherCtrl.getClassAnnouncements);
 teacherRouter.get("/announcements", teacherAuth, teacherCtrl.getTeacherAnnouncements);
