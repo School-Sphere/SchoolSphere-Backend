@@ -8,6 +8,7 @@ const Class = require('../models/class_model');
 const { Announcement, ANNOUNCEMENT_SCOPE, TARGET_AUDIENCE } = require('../models/announcement_model');
 const CourseMaterial = require('../models/course_material_model');
 const { Event } = require('../models/event_model');
+const School = require('../models/school_model');
 
 const teacherCtrl = {
     createAssignment: async (req, res, next) => {
@@ -723,7 +724,35 @@ const teacherCtrl = {
         } catch (err) {
             next(err);
         }
-    }
+    },
+
+    getSchoolSubjects: async (req, res, next) => {
+        try {
+            const schoolCode = req.teacher.schoolCode;
+            
+            // Find the school and populate subjects
+            const school = await School.findOne({ schoolCode })
+                .select('subjects')
+                .lean();
+
+            if (!school) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'School not found'
+                });
+            }
+
+            res.json({
+                success: true,
+                message: 'School subjects retrieved successfully',
+                data: {
+                    subjects: school.subjects || []
+                }
+            });
+        } catch (err) {
+            next(err);
+        }
+    },
 };
 
 module.exports = teacherCtrl;

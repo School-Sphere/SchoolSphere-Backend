@@ -748,6 +748,7 @@ const schoolCtrl = {
     },
 
     getAllTeachers: async (req, res, next) => {
+        console.log("getAllTeachers");
         try {
             const schoolCode = req.school.schoolCode;
             const { page = 1, limit = 10 } = req.query;
