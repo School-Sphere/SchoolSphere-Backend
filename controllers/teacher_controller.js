@@ -13,26 +13,89 @@ const teacherCtrl = {
     createAssignment: async (req, res, next) => {
         try {
             const filePath = req.file.path;
-            const { name } = req.body;
+            const { name, classId, subjectId, description, dueDate } = req.body;
             const teacherId = req.teacher._id;
-            if (!teacherId || !name) {
-                return res.json({ success: false, message: 'Please fill all the fields to create an assignment' });
+
+            if (!teacherId || !name || !classId || !subjectId || !dueDate) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Please fill all required fields (name, class, subject, and due date) to create an assignment'
+                });
             }
+
+            const classDetails = await Class.findById(classId);
+            if (!classDetails) {
+                return res.status(404).json({ success: false, message: 'Class not found' });
+            }
+
+            const hasAccess = classDetails.subjects.some(subject =>
+                subject._id.toString() === subjectId &&
+                subject.teacher.toString() === teacherId.toString()
+            );
+
+            if (!hasAccess) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You are not authorized to create assignments for this subject'
+                });
+            }
+
             let result = await uploadImage(filePath, teacherId);
-            console.log(result);
             if (!result) {
-                return res.json({ success: false, message: 'Error uploading the assignment' });
+                return res.status(500).json({ success: false, message: 'Error uploading the assignment' });
             }
+
             const teacher = await teacherSchema.findById(teacherId);
             const newAssignment = new assignmentSchema({
                 teacherId,
                 name,
+                classId,
+                subjectId,
+                description,
+                dueDate: new Date(dueDate),
                 path: result.url
             });
+
             teacher.assignments.push(newAssignment._id);
             await teacher.save();
             await newAssignment.save();
-            res.json({ successs: true, message: 'Assignment created successfully', data: newAssignment });
+
+            const assignmentObject = newAssignment.toObject();
+            delete assignmentObject._id;
+            const studentAssignment = new studentAssignmentSchema({
+                ...assignmentObject,
+                assignmentAssignedDate: Date.now(),
+                assignmentDueDate: dueDate
+            });
+
+            const students = classDetails.students;
+            let assignedStudents = 0;
+
+            for (let i = 0; i < students.length; i++) {
+                const student = await studentSchema.findOne({
+                    _id: students[i],
+                    schoolCode: req.teacher.schoolCode
+                });
+                if (!student) {
+                    console.log('Student not found: ' + students[i]);
+                    continue;
+                }
+                assignedStudents++;
+                student.pendingAssignments.push(studentAssignment._id);
+                await student.save();
+            }
+
+            await studentAssignment.save();
+
+            res.json({
+                success: true,
+                message: `Assignment created and assigned successfully to ${assignedStudents} students of class ${classDetails.name}-${classDetails.section}`,
+                data: {
+                    teacherAssignment: newAssignment,
+                    studentAssignment: studentAssignment,
+                    assignedStudents
+                }
+            });
         } catch (err) {
             next(err);
         }
@@ -254,32 +317,32 @@ const teacherCtrl = {
         try {
             const teacherId = req.teacher._id;
             const { classId } = req.params;
-    
+
             if (!classId) {
                 return res.status(400).json({ success: false, message: 'Class ID is required' });
             }
-    
+
             const classDetails = await Class.findById(classId)
                 .populate('students', 'name studentId gender profilePicture')
                 .select('name section students');
-    
+
             if (!classDetails) {
                 return res.status(404).json({ success: false, message: 'Class not found' });
             }
-    
+
             // Verify if teacher has access to this class
             if (classDetails.classTeacher && classDetails.classTeacher.toString() !== teacherId.toString() &&
                 !classDetails.subjects.some(subject => subject.teacher && subject.teacher.toString() === teacherId.toString())) {
                 return res.status(403).json({ success: false, message: 'You do not have access to this class' });
             }
-    
+
             const responseData = {
                 _id: classDetails._id,
                 name: classDetails.name,
                 section: classDetails.section,
                 students: classDetails.students
             };
-    
+
             res.json({ success: true, data: responseData });
         } catch (err) {
             next(err);
@@ -289,11 +352,11 @@ const teacherCtrl = {
     getStudentDetails: async (req, res, next) => {
         try {
             const { studentId } = req.params;
-    
+
             if (!studentId) {
                 return next(new ErrorHandler(400, "Student ID is required"));
             }
-    
+
             const student = await studentSchema.findOne({ studentId })
                 .populate({
                     path: 'classId',
@@ -304,11 +367,11 @@ const teacherCtrl = {
                     })
                 })
                 .select('_id studentId name gender parentContact email dob bloodGroup religion doa fatherName motherName parentEmail address fatherOccupation motherOccupation profilePicture');
-    
+
             if (!student) {
                 return next(new ErrorHandler(404, "Student not found"));
             }
-    
+
             const formattedData = {
                 id: student._id,
                 studentId: student.studentId,
@@ -330,7 +393,7 @@ const teacherCtrl = {
                 motherOccupation: student.motherOccupation,
                 profilePicture: student.profilePicture
             };
-    
+
             res.status(200).json({
                 success: true,
                 data: formattedData
@@ -338,7 +401,7 @@ const teacherCtrl = {
         } catch (err) {
             next(err);
         }
-    },    
+    },
 
     createClassAnnouncement: async (req, res, next) => {
         try {
@@ -486,24 +549,24 @@ const teacherCtrl = {
         try {
             const { page = 1, limit = 10, startDate, endDate } = req.query;
             const schoolCode = req.teacher.schoolCode;
-    
+
             const query = { schoolCode };
-    
+
             if (startDate && endDate) {
                 query.time = {
                     $gte: new Date(startDate),
                     $lte: new Date(endDate)
                 };
             }
-    
+
             const options = {
                 page: parseInt(page, 10),
                 limit: parseInt(limit, 10),
                 sort: { time: 1 } // Sort events by time in ascending order
             };
-    
+
             const events = await Event.paginate(query, options);
-    
+
             res.status(200).json({
                 success: true,
                 data: events.docs, // Include the list of events
@@ -516,7 +579,7 @@ const teacherCtrl = {
         } catch (err) {
             next(err); // Pass errors to the error-handling middleware
         }
-    },    
+    },
 
     uploadCourseMaterial: async (req, res, next) => {
         try {
