@@ -729,8 +729,6 @@ const teacherCtrl = {
     getSchoolSubjects: async (req, res, next) => {
         try {
             const schoolCode = req.teacher.schoolCode;
-            
-            // Find the school and populate subjects
             const school = await School.findOne({ schoolCode })
                 .select('subjects')
                 .lean();
@@ -742,14 +740,23 @@ const teacherCtrl = {
                 });
             }
 
+            const formattedSubjects = school.subjects?.map(subject => ({
+                _id: subject._id,
+                name: subject.subjectName,
+                subjectId: subject.subjectId
+            })) || [];
+
+            console.log(formattedSubjects);
+
             res.json({
                 success: true,
                 message: 'School subjects retrieved successfully',
                 data: {
-                    subjects: school.subjects || []
+                    subjects: formattedSubjects
                 }
             });
         } catch (err) {
+            console.error("Error in getSchoolSubjects:", err);
             next(err);
         }
     },
