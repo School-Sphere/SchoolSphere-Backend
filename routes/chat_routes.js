@@ -12,42 +12,57 @@ const messageLimiter = rateLimit({
     message: "Too many messages sent. Please try again later."
 });
 
+// Message sending endpoint
+chatRouter.post("/messages/:roomId",
+    studentAuth || teacherAuth,
+    messageLimiter,  // Apply rate limiting
+    chatCtrl.sendMessage
+);
+
 // Message history routes
-chatRouter.get("/messages/:roomId", 
-    studentAuth || teacherAuth, 
+chatRouter.get("/messages/:roomId",
+    studentAuth || teacherAuth,
     chatCtrl.getMessages
 );
 
-chatRouter.get("/messages/search/:roomId", 
-    studentAuth || teacherAuth, 
+chatRouter.get("/messages/search/:roomId",
+    studentAuth || teacherAuth,
     chatCtrl.searchMessages
 );
 
 // Room management routes
-chatRouter.post("/rooms", 
-    studentAuth || teacherAuth, 
+chatRouter.post("/rooms",
+    studentAuth || teacherAuth,
     chatCtrl.createRoom
 );
 
-chatRouter.put("/rooms/:id", 
-    studentAuth || teacherAuth, 
+chatRouter.put("/rooms/:id",
+    studentAuth || teacherAuth,
     chatCtrl.updateRoom
 );
 
-chatRouter.delete("/rooms/:id", 
-    studentAuth || teacherAuth, 
+chatRouter.delete("/rooms/:id",
+    studentAuth || teacherAuth,
     chatCtrl.deleteRoom
 );
 
 // Member management routes
-chatRouter.post("/rooms/members", 
-    studentAuth || teacherAuth, 
+chatRouter.post("/rooms/members",
+    studentAuth || teacherAuth,
     chatCtrl.addMember
 );
 
-chatRouter.delete("/rooms/:roomId/members/:userId", 
-    studentAuth || teacherAuth, 
+chatRouter.delete("/rooms/:roomId/members/:userId",
+    studentAuth || teacherAuth,
     chatCtrl.removeMember
 );
+
+// Chat room listing endpoints
+chatRouter.get("/rooms/teacher-to-student/:classId", teacherAuth, chatCtrl.getTeacherStudentRooms);
+chatRouter.get("/rooms/class/:classId", studentAuth || teacherAuth, chatCtrl.getClassRoom);
+// chatRouter.get("/chat/rooms/student-teacher", studentAuth, chatCtrl.getStudentTeacherRooms);
+
+// Create chat rooms for a class (both DMs and group chat)
+chatRouter.post("/rooms/initialize/:classId", teacherAuth, chatCtrl.initializeClassChatRooms);
 
 module.exports = chatRouter;

@@ -3,6 +3,7 @@ const Message = require("../models/message_model");
 const Room = require("../models/room_model");
 const Joi = require("joi");
 const User = require("../models/user_model");
+const Class = require("../models/class_model");
 // Validation schemas
 const roomSchema = Joi.object({
     name: Joi.string().required().min(3).max(50),
@@ -21,7 +22,7 @@ const chatCtrl = {
         try {
             const { roomId } = req.params;
             const { page = 1, limit = 50, search } = req.query;
-            
+
             const query = { roomId };
             if (search) {
                 query.content = { $regex: search, $options: 'i' };
@@ -62,13 +63,13 @@ const chatCtrl = {
                 return next(new ErrorHandler(404, "User not found"));
             }
 
-            if(user.role !== 'teacher'){
+            if (user.role !== 'teacher') {
                 return next(new ErrorHandler(403, "You are not authorized to create a room"));
             }
 
             const room = new Room({
                 ...value,
-                members: [{user: req.user._id, role: user.role}],
+                members: [{ user: req.user._id, role: user.role }],
                 schoolCode: user.schoolCode
             });
 
@@ -118,11 +119,11 @@ const chatCtrl = {
             if (!user) {
                 return next(new ErrorHandler(404, "User not found"));
             }
-            if(!room.isTeacher(user._id)){
+            if (!room.isTeacher(user._id)) {
                 return next(new ErrorHandler(403, "You are not authorized to delete a room"));
             }
-            const room = await Room.findOneAndDelete({ 
-                _id: id, 
+            const room = await Room.findOneAndDelete({
+                _id: id,
             });
 
             if (!room) {
@@ -214,7 +215,7 @@ const chatCtrl = {
         try {
             const { roomId } = req.params;
             const { query, from, to } = req.query;
-            
+
             const searchQuery = {
                 roomId,
                 content: { $regex: query, $options: 'i' }
@@ -237,7 +238,490 @@ const chatCtrl = {
         } catch (e) {
             next(e);
         }
+    },
+
+    sendMessage: async (req, res, next) => {
+        try {
+            const { roomId } = req.params;
+            const { content, type = 'TEXT' } = req.body;
+            const sender = req.student || req.teacher;
+
+            // Validate room exists
+            const room = await Room.findById(roomId);
+            if (!room) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Chat room not found'
+                });
+            }
+
+            // Validate content
+            if (!content || !content.trim()) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Message content cannot be empty'
+                });
+            }
+
+            // Create new message with correct case for senderType
+            const newMessage = new Message({
+                roomId,
+                sender: sender._id,
+                senderType: req.student ? 'Student' : 'Teacher', // Matches enum case
+                type: type.toUpperCase(),
+                content: content.trim(),
+                timestamp: new Date()
+            });
+
+            await newMessage.save();
+
+            // Update room's lastMessage
+            await Room.findByIdAndUpdate(roomId, {
+                lastMessage: newMessage._id
+            });
+
+            // Populate sender details
+            await newMessage.populate('sender', 'name email profileImage');
+
+            res.status(201).json({
+                success: true,
+                message: 'Message sent successfully',
+                data: {
+                    messageId: newMessage._id,
+                    content: newMessage.content,
+                    type: newMessage.type,
+                    sender: {
+                        id: sender._id,
+                        name: sender.name,
+                        type: req.student ? 'Student' : 'Teacher'
+                    },
+                    timestamp: newMessage.timestamp,
+                    roomId: roomId
+                }
+            });
+
+        } catch (err) {
+            console.error('Error sending message:', err);
+            next(err);
+        }
+    },
+
+    // 1. Get Teacher-Student chat rooms (for teachers)
+    getTeacherStudentRooms: async (req, res, next) => {
+        try {
+            const teacherId = req.teacher._id;
+            const { classId } = req.params;
+            const schoolCode = req.teacher.schoolCode;
+
+            // First, verify the teacher's association with the class
+            const classData = await Class.findOne({
+                _id: classId,
+                schoolCode,
+                $or: [
+                    { classTeacher: teacherId },
+                    { 'subjects.teacher': teacherId }
+                ]
+            }).populate('students', 'name email profileImage');
+
+            if (!classData) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You are not authorized to view this class chat rooms'
+                });
+            }
+
+            // Get all DM rooms for this class's students
+            const rooms = await Room.find({
+                type: 'DIRECT',
+                schoolCode,
+                'members.user': teacherId,
+                members: {
+                    $elemMatch: {
+                        user: { $in: classData.students.map(s => s._id) }
+                    }
+                }
+            }).populate([
+                {
+                    path: 'members.user',
+                    select: 'name email profileImage'
+                },
+                {
+                    path: 'lastMessage',
+                    populate: {
+                        path: 'sender',
+                        select: 'name'
+                    }
+                }
+            ]);
+
+            // Format the response
+            const formattedResponse = {
+                classDetails: {
+                    classId: classData._id,
+                    className: classData.name,
+                    section: classData.section
+                },
+                students: classData.students.map(student => {
+                    const studentRoom = rooms.find(room =>
+                        room.members.some(member =>
+                            member.user._id.equals(student._id)
+                        )
+                    );
+
+                    return {
+                        studentId: student._id,
+                        name: student.name,
+                        email: student.email,
+                        profileImage: student.profileImage,
+                        chatRoom: studentRoom ? {
+                            roomId: studentRoom._id,
+                            lastMessage: studentRoom.lastMessage ? {
+                                content: studentRoom.lastMessage.content,
+                                timestamp: studentRoom.lastMessage.timestamp,
+                                sender: studentRoom.lastMessage.sender.name
+                            } : null
+                        } : null
+                    };
+                })
+            };
+
+            res.json({
+                success: true,
+                message: 'Teacher-student chat rooms retrieved successfully',
+                data: formattedResponse
+            });
+
+        } catch (err) {
+            console.error('Error getting teacher-student rooms:', err);
+            next(err);
+        }
+    },
+
+    // 2. Get Class chat room
+    getClassRoom: async (req, res, next) => {
+        try {
+            const { classId } = req.params;
+            const user = req.student || req.teacher;
+            const schoolCode = user.schoolCode;
+
+            // Verify class exists and user belongs to it
+            const classData = await Class.findOne({
+                _id: classId,
+                schoolCode,
+                $or: [
+                    { students: user._id },
+                    { 'subjects.teacher': user._id }
+                ]
+            });
+
+            if (!classData) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You do not have access to this class chat'
+                });
+            }
+
+            // Find or create class group chat room
+            let room = await Room.findOne({
+                type: 'group',
+                classId,
+                schoolCode
+            }).populate([
+                {
+                    path: 'members.user',
+                    select: 'name email profileImage role',
+                },
+                {
+                    path: 'lastMessage',
+                    populate: {
+                        path: 'sender',
+                        select: 'name'
+                    }
+                }
+            ]);
+
+            if (!room) {
+                // Create new class room if it doesn't exist
+                room = await createClassRoom(classData, schoolCode);
+            }
+
+            res.json({
+                success: true,
+                message: 'Class chat room retrieved successfully',
+                data: {
+                    roomId: room._id,
+                    name: `${classData.name}-${classData.section} Class Group`,
+                    type: 'group',
+                    members: room.members.map(member => ({
+                        userId: member.user._id,
+                        name: member.user.name,
+                        email: member.user.email,
+                        profileImage: member.user.profileImage,
+                        role: member.role
+                    })),
+                    lastMessage: room.lastMessage ? {
+                        content: room.lastMessage.content,
+                        timestamp: room.lastMessage.timestamp,
+                        sender: room.lastMessage.sender.name
+                    } : null
+                }
+            });
+
+        } catch (err) {
+            console.error('Error getting class room:', err);
+            next(err);
+        }
+    },
+
+    // 3. Get Student-Teacher chat rooms (for students)
+    getStudentTeacherRooms: async (req, res, next) => {
+        try {
+            const studentId = req.student._id;
+            const schoolCode = req.student.schoolCode;
+
+            // Get student's class and teachers
+            const studentClass = await Class.findOne({
+                students: studentId,
+                schoolCode
+            }).populate('subjects.teacher', 'name email profileImage');
+
+            if (!studentClass) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Student class not found'
+                });
+            }
+
+            // Get existing chat rooms with teachers
+            const rooms = await Room.find({
+                'members.user': studentId,
+                type: 'direct',
+                schoolCode
+            }).populate([
+                {
+                    path: 'members.user',
+                    match: { role: 'teacher' },
+                    select: 'name email profileImage'
+                },
+                {
+                    path: 'lastMessage',
+                    populate: {
+                        path: 'sender',
+                        select: 'name'
+                    }
+                }
+            ]);
+
+            // Format teacher list with chat rooms
+            const teachers = studentClass.subjects.map(subject => {
+                const teacher = subject.teacher;
+                const chatRoom = rooms.find(room =>
+                    room.members.some(member =>
+                        member.user && member.user._id.equals(teacher._id)
+                    )
+                );
+
+                return {
+                    teacherId: teacher._id,
+                    name: teacher.name,
+                    email: teacher.email,
+                    profileImage: teacher.profileImage,
+                    subject: subject.name,
+                    chatRoom: chatRoom ? {
+                        roomId: chatRoom._id,
+                        lastMessage: chatRoom.lastMessage ? {
+                            content: chatRoom.lastMessage.content,
+                            timestamp: chatRoom.lastMessage.timestamp,
+                            sender: chatRoom.lastMessage.sender.name
+                        } : null
+                    } : null
+                };
+            });
+
+            res.json({
+                success: true,
+                message: 'Student-teacher chat rooms retrieved successfully',
+                data: {
+                    className: studentClass.name,
+                    section: studentClass.section,
+                    teachers
+                }
+            });
+
+        } catch (err) {
+            console.error('Error getting student-teacher rooms:', err);
+            next(err);
+        }
+    },
+
+    // Initialize all chat rooms for a class (DMs and group chat)
+    initializeClassChatRooms: async (req, res, next) => {
+        try {
+            const teacherId = req.teacher._id;
+            const { classId } = req.params;
+            const schoolCode = req.teacher.schoolCode;
+
+            // Check if teacher is associated with the class
+            const classData = await Class.findOne({
+                _id: classId,
+                schoolCode,
+                $or: [
+                    { classTeacher: teacherId },
+                    { 'subjects.teacher': teacherId }
+                ]
+            }).populate('students', 'name email profileImage');
+
+            if (!classData) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You are not authorized to create chat rooms for this class'
+                });
+            }
+
+            const createdRooms = {
+                directMessages: [],
+                groupChat: null
+            };
+
+            // 1. Create DM rooms with each student
+            for (const student of classData.students) {
+                // Check if DM room already exists
+                let dmRoom = await Room.findOne({
+                    type: 'DIRECT',
+                    schoolCode,
+                    members: {
+                        $all: [
+                            { $elemMatch: { user: teacherId, userType: 'Teacher' } },
+                            { $elemMatch: { user: student._id, userType: 'Student' } }
+                        ]
+                    }
+                });
+
+                if (!dmRoom) {
+                    // Create new DM room
+                    dmRoom = new Room({
+                        type: 'DIRECT',
+                        schoolCode,
+                        members: [
+                            { user: teacherId, userType: 'Teacher', role: 'ADMIN' },
+                            { user: student._id, userType: 'Student', role: 'MEMBER' }
+                        ],
+                        createdBy: teacherId,
+                        createdByType: 'Teacher'
+                    });
+                    await dmRoom.save();
+                }
+
+                createdRooms.directMessages.push({
+                    roomId: dmRoom._id,
+                    studentId: student._id,
+                    studentName: student.name,
+                    type: 'DIRECT'
+                });
+            }
+
+            // 2. Create or get class group chat
+            let groupRoom = await Room.findOne({
+                type: 'GROUP',
+                classId,
+                schoolCode
+            });
+
+            if (!groupRoom) {
+                // Create group chat room
+                groupRoom = new Room({
+                    name: `${classData.name}-${classData.section} Class Group`,
+                    type: 'GROUP',
+                    classId,
+                    schoolCode,
+                    members: [
+                        {
+                            user: teacherId,
+                            userType: 'Teacher',
+                            role: 'ADMIN'
+                        },
+                        ...classData.students.map(student => ({
+                            user: student._id,
+                            userType: 'Student',
+                            role: 'MEMBER'
+                        }))
+                    ],
+                    createdBy: teacherId,
+                    createdByType: 'Teacher'
+                });
+                await groupRoom.save();
+            }
+
+            createdRooms.groupChat = {
+                roomId: groupRoom._id,
+                name: groupRoom.name,
+                type: 'GROUP',
+                memberCount: groupRoom.members.length
+            };
+
+            // Update class document with chat room references
+            await Class.findByIdAndUpdate(classId, {
+                groupChatRoom: groupRoom._id,
+                $addToSet: {
+                    chatRooms: {
+                        $each: [...createdRooms.directMessages.map(dm => dm.roomId), groupRoom._id]
+                    }
+                }
+            });
+
+            res.status(201).json({
+                success: true,
+                message: 'Chat rooms initialized successfully',
+                data: {
+                    classId,
+                    className: classData.name,
+                    section: classData.section,
+                    chatRooms: createdRooms
+                }
+            });
+
+        } catch (err) {
+            console.error('Error initializing class chat rooms:', err);
+            next(err);
+        }
     }
 };
+
+// Utility function to create a class room
+async function createClassRoom(classData, schoolCode) {
+    const members = [
+        // Add class teacher as admin
+        {
+            user: classData.classTeacher,
+            userType: 'Teacher',
+            role: 'admin'
+        },
+        // Add subject teachers as members
+        ...classData.subjects.map(subject => ({
+            user: subject.teacher,
+            userType: 'Teacher',
+            role: 'member'
+        })),
+        // Add students as members
+        ...classData.students.map(studentId => ({
+            user: studentId,
+            userType: 'Student',
+            role: 'member'
+        }))
+    ];
+
+    const room = new Room({
+        name: `${classData.name}-${classData.section} Class Group`,
+        type: 'group',
+        members,
+        classId: classData._id,
+        schoolCode,
+        createdBy: classData.classTeacher,
+        createdByType: 'Teacher'
+    });
+
+    await room.save();
+    return room;
+}
 
 module.exports = chatCtrl;
