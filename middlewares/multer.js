@@ -4,7 +4,7 @@ const path = require("path");
 
 const ALLOWED_FILE_TYPES = {
     courseMaterial: ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.txt', '.xls', '.xlsx'],
-    assignment: ['.pdf', '.doc', '.docx', '.txt']
+    assignment: ['.pdf', '.doc', '.docx', '.txt', '.jpg', '.jpeg', '.png']
 };
 
 const MAX_FILE_SIZES = {

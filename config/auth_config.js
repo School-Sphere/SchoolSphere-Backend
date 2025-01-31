@@ -4,7 +4,7 @@ require('dotenv').config();
 const authConfig = {
   // JWT Configuration
   jwt: {
-    secret: process.env.USER,
+    secret: process.env.SIGN,
     resetSecret: process.env.RESET,
     tokenExpiration: '24h',
     resetTokenExpiration: 600, // 10 minutes in seconds

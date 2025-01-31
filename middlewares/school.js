@@ -19,7 +19,7 @@ const schoolAuth = async (req, res, next) => {
 
         token = token.replace(/^Bearer\s+/, "");
 
-        jwt.verify(token, process.env.USER, async (err, payload) => {
+        jwt.verify(token, process.env.SIGN, async (err, payload) => {
             if (err) {
                 return next(new ErrorHandler(401, "Invalid Token"));
             }
@@ -28,6 +28,7 @@ const schoolAuth = async (req, res, next) => {
             let school;
 
             school = await School.findById({ _id: id });
+            console.log("school", school);
 
             if (!school) {
                 return next(new ErrorHandler(400, "Failed to find school from token"));

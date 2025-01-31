@@ -19,7 +19,7 @@ const studentAuth = async (req, res, next) => {
 
         token = token.replace(/^Bearer\s+/, "");
 
-        jwt.verify(token, process.env.USER, async (err, payload) => {
+        jwt.verify(token, process.env.SIGN, async (err, payload) => {
             if (err) {
                 return next(new ErrorHandler(401, "Invalid Token"));
             }
@@ -36,7 +36,7 @@ const studentAuth = async (req, res, next) => {
 
             next();
         });
-    } 
+    }
     catch (err) {
         next(err);
     }

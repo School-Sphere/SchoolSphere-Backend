@@ -23,6 +23,10 @@ const schoolSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  subjects: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Subject'
+  }]
 });
 
 module.exports = mongoose.model('School', schoolSchema);

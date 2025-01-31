@@ -57,7 +57,7 @@ const adminCtrl = {
             const payload = {
                 id: school._id,
             };
-            const token = jwt.sign(payload, process.env.USER);
+            const token = jwt.sign(payload, process.env.SIGN);
             res.json({
                 success: true,
                 message: "User signed successfully",

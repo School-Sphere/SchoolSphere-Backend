@@ -12,6 +12,22 @@ const assignmentSchema = new mongoose.Schema({
     path: {
         type: String,
         required: true
+    },
+    classId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Class',
+    },
+    subjectId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Subject',
+    },
+    dueDate: {
+        type: Date,
+        required: true
+    },
+    description: {
+        type: String,
+        required: true
     }
 });
 

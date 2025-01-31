@@ -50,6 +50,9 @@ const teacherSchema = new mongoose.Schema({
   doj: {
     type: Date,
   },
+  profilePicture: {
+    type: String,
+  },
   assignments: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Assignment'
