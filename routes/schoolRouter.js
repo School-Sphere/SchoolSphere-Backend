@@ -2,6 +2,7 @@ const express = require("express");
 const schoolCtrl = require("../controllers/school_controller");
 const { schoolAuth } = require("../middlewares");
 const schoolRouter = express.Router();
+const upload = require("../middlewares/upload");
 
 schoolRouter.post("/add-student", schoolAuth, schoolCtrl.addStudent);
 schoolRouter.patch("/update-student", schoolAuth, schoolCtrl.updateStudent);
@@ -25,5 +26,7 @@ schoolRouter.get("/school-details", schoolAuth, schoolCtrl.getSchoolDetails);
 schoolRouter.get("/students", schoolAuth, schoolCtrl.getAllStudents);
 schoolRouter.get("/teachers", schoolAuth, schoolCtrl.getAllTeachers);
 schoolRouter.get("/classes", schoolAuth, schoolCtrl.getAllClasses);
+schoolRouter.post("/import-students", schoolAuth, upload, schoolCtrl.importStudents);
+schoolRouter.post("/import-teachers", schoolAuth, upload, schoolCtrl.importTeachers);
 
 module.exports = schoolRouter;
