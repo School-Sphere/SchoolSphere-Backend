@@ -28,7 +28,6 @@ const schoolAuth = async (req, res, next) => {
             let school;
 
             school = await School.findById({ _id: id });
-            console.log("school", school);
 
             if (!school) {
                 return next(new ErrorHandler(400, "Failed to find school from token"));

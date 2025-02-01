@@ -14,10 +14,10 @@ schoolRouter.post("/add-subjects", schoolAuth, schoolCtrl.addSubjectsToClass);
 schoolRouter.post("/assign-subject-teacher", schoolAuth, schoolCtrl.assignTeacherToSubject);
 
 schoolRouter.post("/announcement", schoolAuth, schoolCtrl.createSchoolAnnouncement);
-schoolRouter.get("/announcements", schoolAuth, schoolCtrl.getSchoolAnnouncements);
+schoolRouter.get("/get-all-announcements", schoolAuth, schoolCtrl.getSchoolAnnouncements);
 
 schoolRouter.post("/events", schoolAuth, schoolCtrl.createEvent);
-schoolRouter.get("/events", schoolAuth, schoolCtrl.getEvents);
+schoolRouter.get("/get-all-events", schoolAuth, schoolCtrl.getEvents);
 
 schoolRouter.get("/student/:studentId", schoolAuth, schoolCtrl.getStudentByStudentId);
 schoolRouter.get("/teacher/:teacherId", schoolAuth, schoolCtrl.getTeacherByTeacherId);

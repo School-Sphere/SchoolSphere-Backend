@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
+
 
 const ANNOUNCEMENT_SCOPE = {
   SCHOOL: 'SCHOOL',
@@ -43,7 +45,7 @@ const announcementSchema = new mongoose.Schema({
   targetClass: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Class',
-    required: function() {
+    required: function () {
       return this.scope === ANNOUNCEMENT_SCOPE.CLASS;
     }
   },
@@ -60,13 +62,15 @@ announcementSchema.index({ schoolCode: 1, createdAt: -1 });
 announcementSchema.index({ targetClass: 1, createdAt: -1 });
 
 // Methods for checking announcement visibility
-announcementSchema.methods.isVisibleToStudent = function() {
+announcementSchema.methods.isVisibleToStudent = function () {
   return this.targetAudience === TARGET_AUDIENCE.ALL;
 };
 
-announcementSchema.methods.isVisibleToTeacher = function() {
+announcementSchema.methods.isVisibleToTeacher = function () {
   return true; // Teachers can see all announcements
 };
+
+announcementSchema.plugin(mongoosePaginate);
 
 const Announcement = mongoose.model('Announcement', announcementSchema);
 
