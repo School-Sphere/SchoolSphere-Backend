@@ -1,7 +1,7 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const chatCtrl = require("../controllers/chat_controller");
-const { studentAuth } = require("../middlewares/student");
+const studentAuth = require("../middlewares/student");
 const teacherAuth = require("../middlewares/teacher");
 const chatRouter = express.Router();
 
@@ -60,7 +60,7 @@ chatRouter.delete("/rooms/:roomId/members/:userId",
 // Chat room listing endpoints
 chatRouter.get("/rooms/teacher-to-student/:classId", teacherAuth, chatCtrl.getTeacherStudentRooms);
 chatRouter.get("/rooms/class/:classId", studentAuth || teacherAuth, chatCtrl.getClassRoom);
-// chatRouter.get("/chat/rooms/student-teacher", studentAuth, chatCtrl.getStudentTeacherRooms);
+chatRouter.get("/rooms/student-to-classTeacher", studentAuth, chatCtrl.getClassTeacherRoom);
 
 // Create chat rooms for a class (both DMs and group chat)
 chatRouter.post("/rooms/initialize/:classId", teacherAuth, chatCtrl.initializeClassChatRooms);
