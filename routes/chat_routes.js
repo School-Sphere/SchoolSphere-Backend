@@ -3,6 +3,7 @@ const rateLimit = require("express-rate-limit");
 const chatCtrl = require("../controllers/chat_controller");
 const studentAuth = require("../middlewares/student");
 const teacherAuth = require("../middlewares/teacher");
+const validateAuth = require("../middlewares/auth");
 const chatRouter = express.Router();
 
 // Rate limiter for message endpoints
@@ -14,55 +15,50 @@ const messageLimiter = rateLimit({
 
 // Message sending endpoint
 chatRouter.post("/messages/:roomId",
-    studentAuth || teacherAuth,
+    validateAuth,
     messageLimiter,  // Apply rate limiting
     chatCtrl.sendMessage
 );
 
 // Message history routes
 chatRouter.get("/messages/:roomId",
-    studentAuth || teacherAuth,
+    validateAuth,
     chatCtrl.getMessages
 );
 
 chatRouter.get("/messages/search/:roomId",
-    studentAuth || teacherAuth,
+    validateAuth,
     chatCtrl.searchMessages
 );
 
 // Room management routes
 chatRouter.post("/rooms",
-    studentAuth || teacherAuth,
+    validateAuth,
     chatCtrl.createRoom
 );
 
 chatRouter.put("/rooms/:id",
-    studentAuth || teacherAuth,
+    validateAuth,
     chatCtrl.updateRoom
 );
 
 chatRouter.delete("/rooms/:id",
-    studentAuth || teacherAuth,
+    validateAuth,
     chatCtrl.deleteRoom
 );
 
 // Member management routes
 chatRouter.post("/rooms/members",
-    studentAuth || teacherAuth,
+    validateAuth,
     chatCtrl.addMember
 );
 
 chatRouter.delete("/rooms/:roomId/members/:userId",
-    studentAuth || teacherAuth,
+    validateAuth,
     chatCtrl.removeMember
 );
-
-// Chat room listing endpoints
 chatRouter.get("/rooms/teacher-to-student/:classId", teacherAuth, chatCtrl.getTeacherStudentRooms);
-chatRouter.get("/rooms/class/:classId", studentAuth || teacherAuth, chatCtrl.getClassRoom);
 chatRouter.get("/rooms/student-to-classTeacher", studentAuth, chatCtrl.getClassTeacherRoom);
-
-// Create chat rooms for a class (both DMs and group chat)
 chatRouter.post("/rooms/initialize/:classId", teacherAuth, chatCtrl.initializeClassChatRooms);
 
 module.exports = chatRouter;

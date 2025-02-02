@@ -4,6 +4,7 @@ const Room = require("../models/room_model");
 const Joi = require("joi");
 const User = require("../models/user_model");
 const Class = require("../models/class_model");
+
 // Validation schemas
 const roomSchema = Joi.object({
     name: Joi.string().required().min(3).max(50),
@@ -19,6 +20,7 @@ const messageSchema = Joi.object({
 const chatCtrl = {
     // Message history retrieval with pagination
     getMessages: async (req, res, next) => {
+        console.log("getMessages");
         try {
             const { roomId } = req.params;
             const { page = 1, limit = 50, search } = req.query;
