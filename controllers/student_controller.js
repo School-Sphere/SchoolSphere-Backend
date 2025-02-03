@@ -207,7 +207,6 @@ const studentCtrl = {
     getStudentEvents: async (req, res, next) => {
         try {
             const { startDate, endDate, page = 1, limit = 10 } = req.query;
-
             const query = {
                 schoolCode: req.student.schoolCode
             };

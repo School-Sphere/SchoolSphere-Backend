@@ -10,7 +10,7 @@ class ErrorHandler extends Error {
       err.message = err.message || "Interal Server Error";
       err.statusCode = err.statusCode || 500;
       console.log(err);
-  
+
       return res.status(err.statusCode).json({
         success: false,
         message: err.message,

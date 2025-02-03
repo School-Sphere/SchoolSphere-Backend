@@ -12,7 +12,7 @@ studentRouter.get("/get-timetable", studentAuth, studentCtrl.getTimeTable);
 studentRouter.get("/student", studentAuth, studentCtrl.getStudent);
 studentRouter.get("/announcements", studentAuth, studentCtrl.getStudentAnnouncements);
 studentRouter.get("/get-course-materials", studentAuth, studentCtrl.getCourseMaterials);
-studentRouter.get("/events", studentAuth, studentCtrl.getStudentEvents);
+studentRouter.get("/student-events", studentAuth, studentCtrl.getStudentEvents);
 
 
 module.exports = studentRouter;

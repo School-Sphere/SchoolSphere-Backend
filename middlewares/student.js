@@ -3,6 +3,7 @@ const { ErrorHandler } = require("./error");
 const Student = require("../models/student_model");
 
 const studentAuth = async (req, res, next) => {
+    console.log("studentAuth");
     try {
         let token;
         if (req.headers["authorization"]) {
@@ -33,7 +34,6 @@ const studentAuth = async (req, res, next) => {
                 return next(new ErrorHandler(400, "Failed to find student from token"));
             }
             req.student = student;
-
             next();
         });
     }
