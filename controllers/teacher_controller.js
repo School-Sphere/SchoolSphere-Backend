@@ -168,18 +168,32 @@ const teacherCtrl = {
             if (!teacher) {
                 return res.json({ success: false, message: 'Teacher not found' });
             }
-            const teacherClass = await Class.findById(teacher.class);
-            const { day, lectures } = req.body;
+            const classId = req.body.classId;
+            if (!classId) {
+                return res.json({ success: false, message: 'Class ID is required' });
+            }
+            const teacherClass = teacher.teachingClasses;
+            if (!teacherClass.includes(classId)) {
+                return res.json({ success: false, message: 'You are not authorized to create timetable for this class' });
+            }
+            const reqClass = await Class.findById(classId);
+            const { day, lectures } = req.body.timeTable[0];
             if (!day || !lectures) {
                 return res.json({ success: false, message: 'Please fill all the fields to create a timetable' });
             }
-            const newTimeTable = new TimetableSchema({
-                day,
-                lectures
-            })
-            teacherClass.timetable.push(newTimeTable);
-            await teacherClass.save();
-            res.json({ success: true, message: 'Timetable created successfully', data: newTimeTable });
+            var timeTable = [];
+            for (let i = 0; i < req.body.timeTable.length; i++) {
+                const newTimeTable = new TimetableSchema({
+                    day: req.body.timeTable[i].day,
+                    lectures: req.body.timeTable[i].lectures
+                });
+                console.log(newTimeTable);
+                await newTimeTable.save();
+                timeTable.push(newTimeTable);
+            }
+            reqClass.timetable = timeTable;
+            await reqClass.save();
+            res.json({ success: true, message: 'Timetable created successfully', data: timeTable });
         } catch (err) {
             next(err);
         }
