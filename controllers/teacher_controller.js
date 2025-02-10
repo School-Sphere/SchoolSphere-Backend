@@ -234,7 +234,7 @@ const teacherCtrl = {
             const teacherClass = await Class.findById(teacher.class);
             res.json({ success: true, data: teacherClass.timetable });
         }
-        catch {
+        catch(err) {
             next(err);
         }
     },
