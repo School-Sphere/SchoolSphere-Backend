@@ -10,9 +10,7 @@ teacherRouter.post("/assign-assignment", teacherAuth, teacherCtrl.assignAssignme
 teacherRouter.post("/mark-all-present", teacherAuth, teacherCtrl.markAllPresent);
 teacherRouter.post("/mark-present", teacherAuth, teacherCtrl.markPresent);
 teacherRouter.post("/mark-absent", teacherAuth, teacherCtrl.markAbsent);
-teacherRouter.post("/create-timetable", teacherAuth, teacherCtrl.createTimeTable);
-teacherRouter.get("/get-timetable", teacherAuth, teacherCtrl.getTimeTable);
-teacherRouter.patch("/update-timetable", teacherAuth, teacherCtrl.updateTimeTable);
+teacherRouter.get("/teacher-timetable", teacherAuth, teacherCtrl.getTimeTable);
 teacherRouter.get("/teacher", teacherAuth, teacherCtrl.getTeacher);
 teacherRouter.get("/teacher/classes", teacherAuth, teacherCtrl.getTeacherClasses);
 teacherRouter.get("/teacher/subjects", teacherAuth, teacherCtrl.getSchoolSubjects);

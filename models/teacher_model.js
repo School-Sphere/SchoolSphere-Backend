@@ -65,6 +65,9 @@ const teacherSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'CourseMaterial'
   }],
+  timetable: {
+    type: [Timetable.schema],
+  },
   schoolCode: { type: String, required: true },
 });
 

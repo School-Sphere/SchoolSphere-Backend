@@ -1228,6 +1228,62 @@ const schoolCtrl = {
             session.endSession();
         }
     },
+
+    createTeacherTimeTable: async (req, res, next) => {
+        try {
+            const teacherId = req.body.teacherId;
+            if (!teacherId) {
+                return res.json({ success: false, message: 'TeacherId is required' });
+            }
+            const teacher = await Teacher.findOne({ teacherId });
+            const { day, lectures } = req.body.timeTable[0];
+            if (!day || !lectures) {
+                return res.json({ success: false, message: 'Please fill all the fields to create a timetable' });
+            }
+            var timeTable = [];
+            for (let i = 0; i < req.body.timeTable.length; i++) {
+                const newTimeTable = new TimetableSchema({
+                    day: req.body.timeTable[i].day,
+                    lectures: req.body.timeTable[i].lectures
+                });
+                await newTimeTable.save();
+                timeTable.push(newTimeTable);
+            }
+            teacher.timetable = timeTable;
+            await teacher.save();
+            res.json({ success: true, message: 'Timetable created successfully', data: timeTable });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    createClassTimeTable:async (req, res, next) => {
+        try {
+            const classId = req.body.teacherId;
+            if (!classId) {
+                return res.json({ success: false, message: 'classId is required' });
+            }
+            const _class = await Class.findOne({ classId });
+            const { day, lectures } = req.body.timeTable[0];
+            if (!day || !lectures) {
+                return res.json({ success: false, message: 'Please fill all the fields to create a timetable' });
+            }
+            var timeTable = [];
+            for (let i = 0; i < req.body.timeTable.length; i++) {
+                const newTimeTable = new TimetableSchema({
+                    day: req.body.timeTable[i].day,
+                    lectures: req.body.timeTable[i].lectures
+                });
+                await newTimeTable.save();
+                timeTable.push(newTimeTable);
+            }
+            _class.timetable = timeTable;
+            await _class.save();
+            res.json({ success: true, message: 'Timetable created successfully', data: timeTable });
+        } catch (err) {
+            next(err);
+        }
+    },
 };
 
 module.exports = schoolCtrl;

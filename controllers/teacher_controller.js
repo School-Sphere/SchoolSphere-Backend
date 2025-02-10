@@ -161,69 +161,6 @@ const teacherCtrl = {
         }
     },
 
-    createTimeTable: async (req, res, next) => {
-        try {
-            const teacherId = req.teacher._id;
-            const teacher = await teacherSchema.findById(teacherId);
-            if (!teacher) {
-                return res.json({ success: false, message: 'Teacher not found' });
-            }
-            const classId = req.body.classId;
-            if (!classId) {
-                return res.json({ success: false, message: 'Class ID is required' });
-            }
-            const teacherClass = teacher.teachingClasses;
-            if (!teacherClass.includes(classId)) {
-                return res.json({ success: false, message: 'You are not authorized to create timetable for this class' });
-            }
-            const reqClass = await Class.findById(classId);
-            const { day, lectures } = req.body.timeTable[0];
-            if (!day || !lectures) {
-                return res.json({ success: false, message: 'Please fill all the fields to create a timetable' });
-            }
-            var timeTable = [];
-            for (let i = 0; i < req.body.timeTable.length; i++) {
-                const newTimeTable = new TimetableSchema({
-                    day: req.body.timeTable[i].day,
-                    lectures: req.body.timeTable[i].lectures
-                });
-                console.log(newTimeTable);
-                await newTimeTable.save();
-                timeTable.push(newTimeTable);
-            }
-            reqClass.timetable = timeTable;
-            await reqClass.save();
-            res.json({ success: true, message: 'Timetable created successfully', data: timeTable });
-        } catch (err) {
-            next(err);
-        }
-    },
-
-    updateTimeTable: async (req, res, next) => {
-        try {
-            const teacherId = req.teacher._id;
-            const teacher = await teacherSchema.findById(teacherId);
-            const teacherClass = await Class.findById(teacher.class);
-
-            if (!teacher) {
-                return res.json({ success: false, message: 'Teacher not found' });
-            }
-            const { day, lectures } = req.body;
-            if (!day || !lectures) {
-                return res.json({ success: false, message: 'Please fill all the fields to update a timetable' });
-            }
-            const timeTable = teacherClass.timetable.find((timeTable) => timeTable.day === day);
-            if (!timeTable) {
-                return res.json({ success: false, message: 'Timetable not found' });
-            }
-            timeTable.lectures = lectures;
-            await teacherClass.save();
-            res.json({ success: true, message: 'Timetable updated successfully', data: timeTable });
-        } catch (err) {
-            next(err);
-        }
-    },
-
     getTimeTable: async (req, res, next) => {
         try {
             const teacherId = req.teacher._id;
@@ -231,8 +168,7 @@ const teacherCtrl = {
             if (!teacher) {
                 return res.json({ success: false, message: 'Teacher not found' });
             }
-            const teacherClass = await Class.findById(teacher.class);
-            res.json({ success: true, data: teacherClass.timetable });
+            res.json({ success: true, data: teacher.timetable });
         }
         catch(err) {
             next(err);

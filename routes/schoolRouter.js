@@ -29,4 +29,7 @@ schoolRouter.get("/classes", schoolAuth, schoolCtrl.getAllClasses);
 schoolRouter.post("/import-students", schoolAuth, upload, schoolCtrl.importStudents);
 schoolRouter.post("/import-teachers", schoolAuth, upload, schoolCtrl.importTeachers);
 
+schoolRouter.post("/create-teacher-timetable", schoolAuth, schoolCtrl.createTeacherTimeTable);
+schoolRouter.post("/create-class-timetable", schoolAuth, schoolCtrl.createClassTimeTable);
+
 module.exports = schoolRouter;
