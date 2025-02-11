@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const userSchema = require('./user_model').schema;
 const mongoosePaginate = require('mongoose-paginate-v2');
+const Timetable = require('../models/timetable_model');
 
 const teacherSchema = new mongoose.Schema({
   ...userSchema.obj,

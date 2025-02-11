@@ -1,8 +1,0 @@
-[2025-02-03T12:58:30.747Z] Error: Failed to find school from token
-    at /home/paras/SchoolSphere/SchoolSphere-Backend/middlewares/school.js:34:29
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-
-[2025-02-03T12:59:29.379Z] Error: Failed to find school from token
-    at /home/paras/SchoolSphere/SchoolSphere-Backend/middlewares/school.js:34:29
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-

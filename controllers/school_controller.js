@@ -1236,6 +1236,9 @@ const schoolCtrl = {
                 return res.json({ success: false, message: 'TeacherId is required' });
             }
             const teacher = await Teacher.findOne({ teacherId });
+            if(!teacher){
+                return res.json({ success: false, message: 'Teacher not found' });
+            }
             const { day, lectures } = req.body.timeTable[0];
             if (!day || !lectures) {
                 return res.json({ success: false, message: 'Please fill all the fields to create a timetable' });
@@ -1264,6 +1267,9 @@ const schoolCtrl = {
                 return res.json({ success: false, message: 'classId is required' });
             }
             const _class = await Class.findOne({ classId });
+            if(!_class){
+                return res.json({ success: false, message: 'Class not found' });
+            }
             const { day, lectures } = req.body.timeTable[0];
             if (!day || !lectures) {
                 return res.json({ success: false, message: 'Please fill all the fields to create a timetable' });
