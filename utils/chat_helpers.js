@@ -92,7 +92,7 @@ const validateClassRoomAccess = async (room, userId, userRole) => {
         throw new Error('User not a member of this class room');
     }
     
-    if (userRole === 'teacher' && member.role !== 'teacher') {
+    if (userRole === 'Teacher' && member.role !== 'Teacher') {
         throw new Error('Unauthorized teacher access');
     }
     
@@ -127,7 +127,7 @@ const updateClassRoomTeacher = async (roomId, oldTeacherId, newTeacherId) => {
     const room = await Room.findById(roomId);
     if (room) {
         await room.removeMember(oldTeacherId);
-        await room.addMember(newTeacherId, 'teacher');
+        await room.addMember(newTeacherId, 'Teacher');
     }
 };
 

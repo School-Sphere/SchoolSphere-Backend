@@ -5,7 +5,7 @@ const { validateRoomAccess, getPaginationParams } = require('../utils/chat_helpe
 const roomSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: function () { return this.type === 'group'; }
+    required: function () { return this.type === 'GROUP'; }
   },
   type: {
     type: String,
@@ -97,7 +97,7 @@ roomSchema.methods.canAccess = async function (userId) {
 
 roomSchema.methods.isTeacher = function (userId) {
   const member = this.members.find(m => m.user.toString() === userId.toString());
-  return member && member.role === 'teacher';
+  return member && member.role === 'Teacher';
 };
 
 // Static methods for room operations
@@ -110,7 +110,7 @@ roomSchema.statics.createClassRoom = async function (name, teacherId = null, sch
   };
 
   if (teacherId) {
-    roomData.members.push({ user: teacherId, role: 'teacher' });
+    roomData.members.push({ user: teacherId, role: 'Teacher' });
   }
 
   return this.create(roomData);
@@ -118,8 +118,8 @@ roomSchema.statics.createClassRoom = async function (name, teacherId = null, sch
 
 //creating private rooms
 roomSchema.statics.createPrivateRoom = async function (members, schoolCode) {
-  const teacher = members.find(m => m.role === 'teacher');
-  const otherUser = members.find(m => m.role !== 'teacher');
+  const teacher = members.find(m => m.role === 'Teacher');
+  const otherUser = members.find(m => m.role !== 'Teacher');
   const roomName = `${teacher.userId}-${otherUser.userId}`;
 
   return this.create({

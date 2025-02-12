@@ -35,7 +35,7 @@ app.use(schoolRouter, errorMiddleware);
 app.use(studentRouter, errorMiddleware);
 app.use(paymentRouter, errorMiddleware);
 app.use(chatRouter, errorMiddleware);
-const PORT = process.env.PORT || 5000;
+const PORT = 5000;
 
 const syncAllIndexes = async (models) => {
   try {

@@ -82,7 +82,7 @@ const schoolCtrl = {
                 address,
                 profilePicture: profilePic,
                 password: hashedPassword,
-                role: 'student',
+                role: 'Student',
                 schoolCode
             });
 
@@ -93,7 +93,7 @@ const schoolCtrl = {
             if (studentClass.chatRoomId) {
                 const room = await Room.findById(studentClass.chatRoomId);
                 if (room) {
-                    await room.addMember(newStudent._id, 'student');
+                    await room.addMember(newStudent._id, 'Student');
                 }
             }
 
@@ -102,7 +102,7 @@ const schoolCtrl = {
                 name,
                 email,
                 password: hashedPassword,
-                role: 'student',
+                role: 'Student',
                 schoolCode
             });
             await newUser.save({ session });
@@ -295,7 +295,7 @@ const schoolCtrl = {
                 name,
                 email,
                 password: hashedPassword,
-                role: 'teacher',
+                role: 'Teacher',
                 teacherId,
                 schoolCode
             });
@@ -307,7 +307,7 @@ const schoolCtrl = {
                 name,
                 email,
                 password: hashedPassword,
-                role: 'teacher',
+                role: 'Teacher',
                 schoolCode
             });
             await newUser.save({ session });
@@ -361,7 +361,7 @@ const schoolCtrl = {
             const newClass = new Class(classData);
             const roomMembers = [];
             if (classTeacher) {
-                roomMembers.push({ user: classTeacher, role: 'teacher' });
+                roomMembers.push({ user: classTeacher, role: 'Teacher' });
             }
             const room = await Room.create({
                 name: `${name}-${section}`,
@@ -583,7 +583,7 @@ const schoolCtrl = {
             if (classToUpdate.chatRoomId) {
                 const room = await Room.findById(classToUpdate.chatRoomId);
                 if (room) {
-                    await room.addMember(newTeacher._id, 'teacher');
+                    await room.addMember(newTeacher._id, 'Teacher');
                 }
             }
 

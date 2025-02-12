@@ -1,6 +1,8 @@
 const { Server } = require('socket.io');
 const createSocketMiddleware = require('../../middlewares/socket_middleware');
 const { EVENTS, ERRORS, SOCKET_CONFIG, RATE_LIMIT_CONFIG } = require('../../config/socket_events');
+const mongoose = require('mongoose');
+
 const {
     messageSchema,
     formatMessage,
@@ -14,8 +16,7 @@ const Message = require('../../models/message_model');
 const User = require('../../models/user_model');
 
 class SocketManager {
-    constructor(io) {
-        this.io = io;
+    constructor() {
         this.roomCache = new Map();
         this.middleware = createSocketMiddleware({
             rateLimitWindow: RATE_LIMIT_CONFIG.windowMs,
@@ -23,11 +24,23 @@ class SocketManager {
         });
     }
 
-     initialize(server) {
-        this.io = new Server(server);
-        this.setupMiddleware();
-        this.setupEventHandlers();
-        return this.io;
+    initialize(server) {
+        try {
+            this.io = new Server(server);
+
+            this.setupMiddleware();
+
+            this.setupEventHandlers();
+            return this.io;
+
+        } catch (error) {
+            console.error('[Socket] Failed to initialize Socket.IO server:', {
+                error: error.message,
+                stack: error.stack,
+                timestamp: new Date().toISOString()
+            });
+            throw error; // Re-throw to handle at application level
+        }
     }
 
     setupMiddleware() {
@@ -41,13 +54,35 @@ class SocketManager {
     }
 
     async handleConnection(socket) {
+        console.log('[Socket] New connection established:', {
+            socketId: socket.id,
+            user: {
+                id: socket.user?._id,
+                name: socket.user?.name,
+                role: socket.user?.role
+            },
+            timestamp: new Date().toISOString()
+        });
+
         try {
-            const { _id, role } = socket.user;
-            await this.joinUserRooms(socket, _id);
+            const user = socket.user;
+            await this.joinUserRooms(socket, user._id);
             this.setupMessageHandlers(socket);
             this.setupRoomHandlers(socket);
             this.setupDisconnectHandler(socket);
+
+            console.log('[Socket] User setup completed:', {
+                socketId: socket.id,
+                userId: user._id,
+                joinedRooms: Array.from(socket.rooms)
+            });
+
         } catch (error) {
+            console.error('[Socket] Connection setup failed:', {
+                socketId: socket.id,
+                error: error.message,
+                stack: error.stack
+            });
             this.handleError(socket, error);
         }
     }
@@ -57,7 +92,7 @@ class SocketManager {
             'members.user': userId,
             isActive: true
         });
-        
+
         for (const room of userRooms) {
             await socket.join(room._id.toString());
         }
@@ -66,52 +101,101 @@ class SocketManager {
     setupMessageHandlers(socket) {
         socket.on(EVENTS.GROUP_MESSAGE, async (data) => {
             try {
-                const { roomId, content } = data;
-                await messageSchema.validateAsync({ roomId, content });
-                
+                const { roomId, content, type = 'TEXT' } = data;
+
                 const room = await Room.findById(roomId);
-                await validateRoomAccess(room, socket.user._id);
-                
-                const sanitizedContent = sanitizeContent(content);
-                const message = await this.createMessage(socket.user._id, sanitizedContent, 'group', roomId);
-                
-                await Room.findByIdAndUpdate(roomId, { lastMessageAt: new Date() });
-                const formattedMessage = formatMessage(message, socket.user);
-                this.io.to(roomId).emit(EVENTS.GROUP_MESSAGE, formattedMessage);
+                if (!room) throw new Error('Room not found');
+
+                // Verify user is member of the room
+                const isMember = room.members.some(member =>
+                    member.user.toString() === socket.user._id.toString()
+                );
+                if (!isMember) throw new Error('Unauthorized access to room');
+
+                const message = await Message.create({
+                    roomId,
+                    sender: socket.user._id,
+                    senderType: socket.user.role,
+                    type,
+                    content: content.trim()
+                });
+
+                await Room.findByIdAndUpdate(roomId, {
+                    lastMessage: message._id,
+                    lastMessageAt: new Date()
+                });
+
+                const populatedMessage = await Message.findById(message._id)
+                    .populate('sender', 'name email profileImage');
+
+                socket.to(roomId).emit(EVENTS.GROUP_MESSAGE, {
+                    messageId: message._id,
+                    roomId,
+                    content: message.content,
+                    type: message.type,
+                    sender: {
+                        _id: socket.user._id,
+                        name: socket.user.name,
+                        type: socket.user.role
+                    },
+                    timestamp: message.timestamp
+                });
+
             } catch (error) {
-                if (error.name === 'ValidationError') {
-                    const validationError = createChatError(400, ERRORS.VALIDATION.INVALID_MESSAGE);
-                    this.handleError(socket, validationError);
-                } else if (error.name === 'MongoError') {
-                    const dbError = createChatError(500, ERRORS.DATABASE.OPERATION_FAILED);
-                    this.handleError(socket, dbError);
-                } else {
-                    this.handleError(socket, error);
-                }
+                this.handleError(socket, error);
             }
         });
 
         socket.on(EVENTS.PRIVATE_MESSAGE, async (data) => {
-            try {
-                const { recipientId, content } = data;
-                await messageSchema.validateAsync({ recipientId, content });
-                
-                const room = await this.getOrCreatePrivateRoom(socket.user._id, recipientId);
-                const sanitizedContent = sanitizeContent(content);
+            console.log('[Socket] Received private message:', {
+                from: {
+                    userId: socket.user?._id,
+                    name: socket.user?.name,
+                    role: socket.role
+                },
+                to: data.recipientId,
+                content: data.content,
+                type: data.type
+            });
 
-                const message = await this.createMessage(socket.user._id, sanitizedContent, 'private', room._id);
-                const formattedMessage = formatMessage(message, socket.user);
-                
-                this.io.to(room._id.toString()).emit(EVENTS.PRIVATE_MESSAGE, formattedMessage);
-                
-                const updatedRoom = await Room.findByIdAndUpdate(
-                    room._id, 
-                    { lastMessageAt: new Date().toISOString() }, 
-                    { new: true }
-                );
-                
-                this.roomCache.set(`${socket.user._id}-${recipientId}`, updatedRoom);
+            try {
+                const { recipientId, content, type = 'TEXT' } = data;
+
+                const room = await this.getOrCreatePrivateRoom(socket.user._id, new mongoose.Types.ObjectId(recipientId));
+
+                const message = await Message.create({
+                    roomId: room._id,
+                    sender: socket.user._id,
+                    senderType: socket.user.role,
+                    type,
+                    content: content.trim()
+                });
+
+                await Room.findByIdAndUpdate(room._id, {
+                    lastMessage: message._id,
+                    lastMessageAt: new Date()
+                });
+
+                const populatedMessage = await Message.findById(message._id)
+                    .populate('sender', 'name email profileImage');
+
+                console.log("hiiiiiiiiiiiiiiiiiiiiiiiiiiii");
+                socket.to(room._id.toString()).emit(EVENTS.PRIVATE_MESSAGE, {
+                    messageId: message._id,
+                    roomId: room._id,
+                    content: message.content,
+                    type: message.type,
+                    sender: {
+                        _id: socket.user._id,
+                        name: socket.user.name,
+                        type: socket.user.role
+                    },
+                    timestamp: message.timestamp
+                });
+                console.log("byeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
+
             } catch (error) {
+                console.log("error: ", error);
                 this.handleError(socket, error);
             }
         });
@@ -119,13 +203,14 @@ class SocketManager {
 
     setupRoomHandlers(socket) {
         socket.on(EVENTS.JOIN_ROOM, async (data) => {
+            console.log('JOIN_ROOM', data);
             try {
                 const { roomId } = data;
                 await messageSchema.validateAsync({ roomId });
-                
+
                 const room = await Room.findById(roomId);
                 await validateRoomAccess(room, socket.user._id);
-                
+
                 socket.join(roomId);
                 const messages = await Message.find({ roomId }).sort({ createdAt: -1 }).limit(50);
                 const formattedMessages = messages.map(msg => formatMessage(msg, msg.sender));
@@ -140,7 +225,7 @@ class SocketManager {
                 const { classId, studentId } = data;
                 const room = await Room.findOne({ type: 'class', 'members.user': classId });
                 if (!room) throw createChatError(404, ERRORS.ROOM.NOT_FOUND);
-                
+
                 await room.addMember(studentId, 'student');
                 socket.join(room._id.toString());
                 socket.emit(EVENTS.CLASS_CHAT_JOIN, { success: true, roomId: room._id });
@@ -154,7 +239,7 @@ class SocketManager {
                 const { classId, studentId } = data;
                 const room = await Room.findOne({ type: 'class', 'members.user': classId });
                 if (!room) throw createChatError(404, ERRORS.ROOM.NOT_FOUND);
-                
+
                 await room.removeMember(studentId);
                 socket.leave(room._id.toString());
                 socket.emit(EVENTS.CLASS_CHAT_LEAVE, { success: true });
@@ -166,6 +251,13 @@ class SocketManager {
 
     setupDisconnectHandler(socket) {
         socket.on(EVENTS.DISCONNECT, () => {
+            console.log('[Socket] User disconnected:', {
+                socketId: socket.id,
+                userId: socket.user?._id,
+                name: socket.user?.name,
+                timestamp: new Date().toISOString()
+            });
+
             this.middleware.cleanupRateLimiter(socket);
             socket.leaveAll();
         });
@@ -183,54 +275,60 @@ class SocketManager {
     async getOrCreatePrivateRoom(userId, recipientId) {
         const roomKey = `${userId}-${recipientId}`;
 
-        // Check cache first
         if (this.roomCache.has(roomKey)) {
             return this.roomCache.get(roomKey);
         }
 
-        // Fetch users in parallel
-        const [user, recipient] = await Promise.all([
-            User.findById(userId),
-            User.findById(recipientId)
-        ]);
-
-        if (!user || !recipient) {
-            throw createChatError(ERRORS.AUTH.code, ERRORS.USER.NOT_FOUND);
-        }
-
-        // Validate school code
-        if (!user.schoolCode) {
-            throw createChatError(400, 'Invalid school code');
-        }
-
-        // Ensure one is a teacher and the other is a student
-        if (!((user.role === 'teacher' && recipient.role === 'student') || 
-              (user.role === 'student' && recipient.role === 'teacher'))) {
-            throw createChatError(ERRORS.ROOM.code, ERRORS.ROOM.UNAUTHORIZED);
-        }
-
         let room = await Room.findOne({
-            type: 'private',
+            type: 'DIRECT',
             'members.user': { $all: [userId, recipientId] }
         });
 
         if (!room) {
-            room = await Room.createPrivateRoom([
-                { id: userId, role: user.role },
-                { id: recipientId, role: recipient.role }
-            ], user.schoolCode);
+            const [user1, user2] = await Promise.all([
+                User.findById(userId),
+                User.findById(recipientId)
+            ]);
 
-            if (!room) {
-                throw createChatError(500, 'Failed to create private room');
+            if (!user1 || !user2) {
+                throw new Error('One or both users not found');
             }
-            
-            // Cache the newly created room
+
+            room = await Room.create({
+                type: 'DIRECT',
+                members: [
+                    { user: userId, userType: user1.role, role: 'MEMBER' },
+                    { user: recipientId, userType: user2.role, role: 'MEMBER' }
+                ],
+                schoolCode: user1.schoolCode,
+                createdBy: userId,
+                createdByType: user1.role
+            });
+
             this.roomCache.set(roomKey, room);
         }
 
         return room;
     }
 
+    // For class/group rooms
+    async createClassRoom(name, teacherId, classId, schoolCode) {
+        return Room.create({
+            name,
+            type: 'GROUP',
+            members: [
+                {
+                    user: teacherId,
+                    userType: 'Teacher',
+                    role: 'ADMIN'
+                }
+            ],
+            classId,
+            schoolCode,
+            createdBy: teacherId,
+            createdByType: 'Teacher'
+        });
+    }
 
     handleError(socket, error) {
         const errorResponse = handleChatError(error);

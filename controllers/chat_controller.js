@@ -89,7 +89,7 @@ const chatCtrl = {
                 return next(new ErrorHandler(404, "User not found"));
             }
 
-            if (user.role !== 'teacher') {
+            if (user.role !== 'Teacher') {
                 return next(new ErrorHandler(403, "You are not authorized to create a room"));
             }
 
