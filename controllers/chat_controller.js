@@ -26,6 +26,7 @@ const chatCtrl = {
             const { page = 1, limit = 50, search } = req.query;
             const currentUser = req.student || req.teacher;
             const schoolCode = currentUser.schoolCode;
+            console.log(currentUser);
 
             // Verify room exists and user has access
             const room = await Room.findOne({
@@ -339,7 +340,7 @@ const chatCtrl = {
             const { classId } = req.params;
             const schoolCode = req.teacher.schoolCode;
 
-            // First, verify the teacher's association with the class
+            // Get class data with students
             const classData = await Class.findOne({
                 _id: classId,
                 schoolCode,
@@ -356,16 +357,26 @@ const chatCtrl = {
                 });
             }
 
-            // Get all DM rooms for this class's students
+            // Get both DM rooms and group chat room
             const rooms = await Room.find({
-                type: 'DIRECT',
                 schoolCode,
-                'members.user': teacherId,
-                members: {
-                    $elemMatch: {
-                        user: { $in: classData.students.map(s => s._id) }
+                $or: [
+                    // DM rooms with students
+                    {
+                        type: 'DIRECT',
+                        'members.user': teacherId,
+                        members: {
+                            $elemMatch: {
+                                user: { $in: classData.students.map(s => s._id) }
+                            }
+                        }
+                    },
+                    // Class group chat
+                    {
+                        type: 'GROUP',
+                        classId
                     }
-                }
+                ]
             }).populate([
                 {
                     path: 'members.user',
@@ -380,41 +391,67 @@ const chatCtrl = {
                 }
             ]);
 
-            // Format the response
-            const formattedResponse = {
-                classDetails: {
-                    classId: classData._id,
-                    className: classData.name,
-                    section: classData.section
-                },
-                students: classData.students.map(student => {
-                    const studentRoom = rooms.find(room =>
-                        room.members.some(member =>
-                            member.user._id.equals(student._id)
-                        )
-                    );
+            // Separate DM and group chat
+            const groupChat = rooms.find(room => room.type === 'GROUP');
+            const directMessages = rooms.filter(room => room.type === 'DIRECT');
 
-                    return {
+            res.json({
+                success: true,
+                message: 'Chat rooms retrieved successfully',
+                data: {
+                    className: classData.name,
+                    section: classData.section,
+                    students: classData.students.map(student => ({
                         studentId: student._id,
                         name: student.name,
                         email: student.email,
                         profileImage: student.profileImage,
-                        chatRoom: studentRoom ? {
-                            roomId: studentRoom._id,
-                            lastMessage: studentRoom.lastMessage ? {
-                                content: studentRoom.lastMessage.content,
-                                timestamp: studentRoom.lastMessage.timestamp,
-                                sender: studentRoom.lastMessage.sender.name
+                        chatRoom: directMessages.find(room =>
+                            room.members.some(member =>
+                                member.user._id.equals(student._id)
+                            )
+                        ) ? {
+                            roomId: directMessages.find(room =>
+                                room.members.some(member =>
+                                    member.user._id.equals(student._id)
+                                )
+                            )._id,
+                            type: 'DIRECT',
+                            lastMessage: directMessages.find(room =>
+                                room.members.some(member =>
+                                    member.user._id.equals(student._id)
+                                )
+                            ).lastMessage ? {
+                                content: directMessages.find(room =>
+                                    room.members.some(member =>
+                                        member.user._id.equals(student._id)
+                                    )
+                                ).lastMessage.content,
+                                timestamp: directMessages.find(room =>
+                                    room.members.some(member =>
+                                        member.user._id.equals(student._id)
+                                    )
+                                ).lastMessage.timestamp,
+                                sender: directMessages.find(room =>
+                                    room.members.some(member =>
+                                        member.user._id.equals(student._id)
+                                    )
+                                ).lastMessage.sender.name
                             } : null
                         } : null
-                    };
-                })
-            };
-
-            res.json({
-                success: true,
-                message: 'Teacher-student chat rooms retrieved successfully',
-                data: formattedResponse
+                    })),
+                    classGroup: groupChat ? {
+                        roomId: groupChat._id,
+                        name: groupChat.name,
+                        type: 'GROUP',
+                        lastMessage: groupChat.lastMessage ? {
+                            content: groupChat.lastMessage.content,
+                            timestamp: groupChat.lastMessage.timestamp,
+                            sender: groupChat.lastMessage.sender.name
+                        } : null,
+                        memberCount: groupChat.members.length
+                    } : null
+                }
             });
 
         } catch (err) {

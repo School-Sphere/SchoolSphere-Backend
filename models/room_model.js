@@ -65,7 +65,7 @@ const roomSchema = new mongoose.Schema({
   },
   createdByType: {
     type: String,
-    enum: ['Student', 'Teacher'],
+    enum: ['Student', 'Teacher', 'School'],
     required: true
   }
 }, {

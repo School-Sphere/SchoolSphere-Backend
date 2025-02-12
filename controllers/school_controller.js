@@ -365,9 +365,12 @@ const schoolCtrl = {
             }
             const room = await Room.create({
                 name: `${name}-${section}`,
-                type: 'class',
+                type: 'GROUP',
                 members: roomMembers,
-                schoolCode
+                schoolCode,
+                createdBy: req.school._id,
+                createdByType: 'School',
+                classId: newClass._id
             });
 
             newClass.chatRoomId = room._id;
