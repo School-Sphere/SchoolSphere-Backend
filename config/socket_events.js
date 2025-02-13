@@ -27,7 +27,7 @@ const AUTH_EVENTS = {
 // Validation Schemas
 const authSchema = Joi.object({
     token: Joi.string().required(),
-    role: Joi.string().valid('student', 'teacher').required()
+    role: Joi.string().valid('Student', 'Teacher').required()
 });
 
 const messageSchema = Joi.object({

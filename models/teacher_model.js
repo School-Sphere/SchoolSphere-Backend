@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const userSchema = require('./user_model').schema;
 const mongoosePaginate = require('mongoose-paginate-v2');
+const Timetable = require('../models/timetable_model');
 
 const teacherSchema = new mongoose.Schema({
   ...userSchema.obj,
@@ -50,6 +51,9 @@ const teacherSchema = new mongoose.Schema({
   doj: {
     type: Date,
   },
+  profilePicture: {
+    type: String,
+  },
   assignments: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Assignment'
@@ -62,6 +66,9 @@ const teacherSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'CourseMaterial'
   }],
+  timetable: {
+    type: [Timetable.schema],
+  },
   schoolCode: { type: String, required: true },
 });
 

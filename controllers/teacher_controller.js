@@ -8,31 +8,95 @@ const Class = require('../models/class_model');
 const { Announcement, ANNOUNCEMENT_SCOPE, TARGET_AUDIENCE } = require('../models/announcement_model');
 const CourseMaterial = require('../models/course_material_model');
 const { Event } = require('../models/event_model');
+const School = require('../models/school_model');
 
 const teacherCtrl = {
     createAssignment: async (req, res, next) => {
         try {
             const filePath = req.file.path;
-            const { name } = req.body;
+            const { name, classId, subjectId, description, dueDate } = req.body;
             const teacherId = req.teacher._id;
-            if (!teacherId || !name) {
-                return res.json({ success: false, message: 'Please fill all the fields to create an assignment' });
+
+            if (!teacherId || !name || !classId || !subjectId || !dueDate) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Please fill all required fields (name, class, subject, and due date) to create an assignment'
+                });
             }
+
+            const classDetails = await Class.findById(classId);
+            if (!classDetails) {
+                return res.status(404).json({ success: false, message: 'Class not found' });
+            }
+
+            const hasAccess = classDetails.subjects.some(subject =>
+                subject._id.toString() === subjectId &&
+                subject.teacher.toString() === teacherId.toString()
+            );
+
+            if (!hasAccess) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You are not authorized to create assignments for this subject'
+                });
+            }
+
             let result = await uploadImage(filePath, teacherId);
-            console.log(result);
             if (!result) {
-                return res.json({ success: false, message: 'Error uploading the assignment' });
+                return res.status(500).json({ success: false, message: 'Error uploading the assignment' });
             }
+
             const teacher = await teacherSchema.findById(teacherId);
             const newAssignment = new assignmentSchema({
                 teacherId,
                 name,
+                classId,
+                subjectId,
+                description,
+                dueDate: new Date(dueDate),
                 path: result.url
             });
+
             teacher.assignments.push(newAssignment._id);
             await teacher.save();
             await newAssignment.save();
-            res.json({ successs: true, message: 'Assignment created successfully', data: newAssignment });
+
+            const assignmentObject = newAssignment.toObject();
+            delete assignmentObject._id;
+            const studentAssignment = new studentAssignmentSchema({
+                ...assignmentObject,
+                assignmentAssignedDate: Date.now(),
+                assignmentDueDate: dueDate
+            });
+
+            const students = classDetails.students;
+            let assignedStudents = 0;
+
+            for (let i = 0; i < students.length; i++) {
+                const student = await studentSchema.findOne({
+                    _id: students[i],
+                    schoolCode: req.teacher.schoolCode
+                });
+                if (!student) {
+                    console.log('Student not found: ' + students[i]);
+                    continue;
+                }
+                assignedStudents++;
+                student.pendingAssignments.push(studentAssignment._id);
+                await student.save();
+            }
+
+            await studentAssignment.save();
+
+            res.json({
+                success: true,
+                message: `Assignment created and assigned successfully to ${assignedStudents} students of class ${classDetails.name}-${classDetails.section}`,
+                data: {
+                    teacherAssignment: newAssignment,
+                    studentAssignment: studentAssignment,
+                    assignedStudents
+                }
+            });
         } catch (err) {
             next(err);
         }
@@ -97,55 +161,6 @@ const teacherCtrl = {
         }
     },
 
-    createTimeTable: async (req, res, next) => {
-        try {
-            const teacherId = req.teacher._id;
-            const teacher = await teacherSchema.findById(teacherId);
-            if (!teacher) {
-                return res.json({ success: false, message: 'Teacher not found' });
-            }
-            const teacherClass = await Class.findById(teacher.class);
-            const { day, lectures } = req.body;
-            if (!day || !lectures) {
-                return res.json({ success: false, message: 'Please fill all the fields to create a timetable' });
-            }
-            const newTimeTable = new TimetableSchema({
-                day,
-                lectures
-            })
-            teacherClass.timetable.push(newTimeTable);
-            await teacherClass.save();
-            res.json({ success: true, message: 'Timetable created successfully', data: newTimeTable });
-        } catch (err) {
-            next(err);
-        }
-    },
-
-    updateTimeTable: async (req, res, next) => {
-        try {
-            const teacherId = req.teacher._id;
-            const teacher = await teacherSchema.findById(teacherId);
-            const teacherClass = await Class.findById(teacher.class);
-
-            if (!teacher) {
-                return res.json({ success: false, message: 'Teacher not found' });
-            }
-            const { day, lectures } = req.body;
-            if (!day || !lectures) {
-                return res.json({ success: false, message: 'Please fill all the fields to update a timetable' });
-            }
-            const timeTable = teacherClass.timetable.find((timeTable) => timeTable.day === day);
-            if (!timeTable) {
-                return res.json({ success: false, message: 'Timetable not found' });
-            }
-            timeTable.lectures = lectures;
-            await teacherClass.save();
-            res.json({ success: true, message: 'Timetable updated successfully', data: timeTable });
-        } catch (err) {
-            next(err);
-        }
-    },
-
     getTimeTable: async (req, res, next) => {
         try {
             const teacherId = req.teacher._id;
@@ -153,10 +168,9 @@ const teacherCtrl = {
             if (!teacher) {
                 return res.json({ success: false, message: 'Teacher not found' });
             }
-            const teacherClass = await Class.findById(teacher.class);
-            res.json({ success: true, data: teacherClass.timetable });
+            res.json({ success: true, data: teacher.timetable });
         }
-        catch {
+        catch(err) {
             next(err);
         }
     },
@@ -260,21 +274,81 @@ const teacherCtrl = {
             }
 
             const classDetails = await Class.findById(classId)
-                .populate('students', 'name rollNumber email')
-                .populate('classTeacher', 'name email')
-                .select('name section students subjects timetable');
+                .populate('students', 'name studentId gender profilePicture')
+                .select('name section students');
 
             if (!classDetails) {
                 return res.status(404).json({ success: false, message: 'Class not found' });
             }
 
             // Verify if teacher has access to this class
-            if (classDetails.classTeacher._id.toString() !== teacherId.toString() &&
+            if (classDetails.classTeacher && classDetails.classTeacher.toString() !== teacherId.toString() &&
                 !classDetails.subjects.some(subject => subject.teacher && subject.teacher.toString() === teacherId.toString())) {
                 return res.status(403).json({ success: false, message: 'You do not have access to this class' });
             }
 
-            res.json({ success: true, data: classDetails });
+            const responseData = {
+                _id: classDetails._id,
+                name: classDetails.name,
+                section: classDetails.section,
+                students: classDetails.students
+            };
+
+            res.json({ success: true, data: responseData });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    getStudentDetails: async (req, res, next) => {
+        try {
+            const { studentId } = req.params;
+
+            if (!studentId) {
+                return next(new ErrorHandler(400, "Student ID is required"));
+            }
+
+            const student = await studentSchema.findOne({ studentId })
+                .populate({
+                    path: 'classId',
+                    select: 'name section',
+                    transform: (doc) => ({
+                        className: doc.name,
+                        section: doc.section
+                    })
+                })
+                .select('_id studentId name gender parentContact email dob bloodGroup religion doa fatherName motherName parentEmail address fatherOccupation motherOccupation profilePicture');
+
+            if (!student) {
+                return next(new ErrorHandler(404, "Student not found"));
+            }
+
+            const formattedData = {
+                id: student._id,
+                studentId: student.studentId,
+                name: student.name,
+                gender: student.gender,
+                parentContact: student.parentContact,
+                email: student.email,
+                dob: student.dob,
+                bloodGroup: student.bloodGroup,
+                religion: student.religion,
+                doa: student.doa,
+                fatherName: student.fatherName,
+                motherName: student.motherName,
+                parentEmail: student.parentEmail,
+                address: student.address,
+                className: student.classId?.className || null,
+                section: student.classId?.section || null,
+                fatherOccupation: student.fatherOccupation,
+                motherOccupation: student.motherOccupation,
+                profilePicture: student.profilePicture
+            };
+
+            res.status(200).json({
+                success: true,
+                data: formattedData
+            });
         } catch (err) {
             next(err);
         }
@@ -426,24 +500,24 @@ const teacherCtrl = {
         try {
             const { page = 1, limit = 10, startDate, endDate } = req.query;
             const schoolCode = req.teacher.schoolCode;
-    
+
             const query = { schoolCode };
-    
+
             if (startDate && endDate) {
                 query.time = {
                     $gte: new Date(startDate),
                     $lte: new Date(endDate)
                 };
             }
-    
+
             const options = {
                 page: parseInt(page, 10),
                 limit: parseInt(limit, 10),
                 sort: { time: 1 } // Sort events by time in ascending order
             };
-    
+
             const events = await Event.paginate(query, options);
-    
+
             res.status(200).json({
                 success: true,
                 data: events.docs, // Include the list of events
@@ -456,7 +530,7 @@ const teacherCtrl = {
         } catch (err) {
             next(err); // Pass errors to the error-handling middleware
         }
-    },    
+    },
 
     uploadCourseMaterial: async (req, res, next) => {
         try {
@@ -600,7 +674,42 @@ const teacherCtrl = {
         } catch (err) {
             next(err);
         }
-    }
+    },
+
+    getSchoolSubjects: async (req, res, next) => {
+        try {
+            const schoolCode = req.teacher.schoolCode;
+            const school = await School.findOne({ schoolCode })
+                .select('subjects')
+                .lean();
+
+            if (!school) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'School not found'
+                });
+            }
+
+            const formattedSubjects = school.subjects?.map(subject => ({
+                _id: subject._id,
+                name: subject.subjectName,
+                subjectId: subject.subjectId
+            })) || [];
+
+            console.log(formattedSubjects);
+
+            res.json({
+                success: true,
+                message: 'School subjects retrieved successfully',
+                data: {
+                    subjects: formattedSubjects
+                }
+            });
+        } catch (err) {
+            console.error("Error in getSchoolSubjects:", err);
+            next(err);
+        }
+    },
 };
 
 module.exports = teacherCtrl;

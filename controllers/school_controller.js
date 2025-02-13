@@ -12,6 +12,7 @@ const sendEmailSchool = require("../utils/school_mailer");
 const Room = require("../models/room_model");
 const { Announcement, ANNOUNCEMENT_SCOPE, TARGET_AUDIENCE } = require("../models/announcement_model");
 const { Event } = require("../models/event_model");
+const { isValidFileType, isValidFileSize, parseCSV, parseExcel, validateStudentData } = require('../utils/file_validator');
 
 const schoolCtrl = {
     addStudent: async (req, res, next) => {
@@ -82,7 +83,7 @@ const schoolCtrl = {
                 address,
                 profilePicture: profilePic,
                 password: hashedPassword,
-                role: 'student',
+                role: 'Student',
                 schoolCode
             });
 
@@ -93,7 +94,7 @@ const schoolCtrl = {
             if (studentClass.chatRoomId) {
                 const room = await Room.findById(studentClass.chatRoomId);
                 if (room) {
-                    await room.addMember(newStudent._id, 'student');
+                    await room.addMember(newStudent._id, 'Student');
                 }
             }
 
@@ -102,7 +103,7 @@ const schoolCtrl = {
                 name,
                 email,
                 password: hashedPassword,
-                role: 'student',
+                role: 'Student',
                 schoolCode
             });
             await newUser.save({ session });
@@ -295,7 +296,7 @@ const schoolCtrl = {
                 name,
                 email,
                 password: hashedPassword,
-                role: 'teacher',
+                role: 'Teacher',
                 teacherId,
                 schoolCode
             });
@@ -307,7 +308,7 @@ const schoolCtrl = {
                 name,
                 email,
                 password: hashedPassword,
-                role: 'teacher',
+                role: 'Teacher',
                 schoolCode
             });
             await newUser.save({ session });
@@ -361,13 +362,16 @@ const schoolCtrl = {
             const newClass = new Class(classData);
             const roomMembers = [];
             if (classTeacher) {
-                roomMembers.push({ user: classTeacher, role: 'teacher' });
+                roomMembers.push({ user: classTeacher, role: 'Teacher' });
             }
             const room = await Room.create({
                 name: `${name}-${section}`,
-                type: 'class',
+                type: 'GROUP',
                 members: roomMembers,
-                schoolCode
+                schoolCode,
+                createdBy: req.school._id,
+                createdByType: 'School',
+                classId: newClass._id
             });
 
             newClass.chatRoomId = room._id;
@@ -583,7 +587,7 @@ const schoolCtrl = {
             if (classToUpdate.chatRoomId) {
                 const room = await Room.findById(classToUpdate.chatRoomId);
                 if (room) {
-                    await room.addMember(newTeacher._id, 'teacher');
+                    await room.addMember(newTeacher._id, 'Teacher');
                 }
             }
 
@@ -748,6 +752,7 @@ const schoolCtrl = {
     },
 
     getAllTeachers: async (req, res, next) => {
+        console.log("getAllTeachers");
         try {
             const schoolCode = req.school.schoolCode;
             const { page = 1, limit = 10 } = req.query;
@@ -930,7 +935,7 @@ const schoolCtrl = {
                         section: doc.section
                     })
                 })
-                .select('_id teacherId name gender contactNumber email designation qualifications address dob bloodGroup religion doj');
+                .select('_id teacherId name gender contactNumber email designation qualifications address dob bloodGroup religion doj profilePicture');
 
             if (!teacher) {
                 return next(new ErrorHandler(404, "Teacher not found"));
@@ -951,7 +956,8 @@ const schoolCtrl = {
                 dob: teacher.dob,
                 bloodGroup: teacher.bloodGroup,
                 religion: teacher.religion,
-                doj: teacher.doj
+                doj: teacher.doj,
+                profilePicture: teacher.profilePicture
             };
 
             res.status(200).json({
@@ -981,7 +987,312 @@ const schoolCtrl = {
         } catch (err) {
             next(err);
         }
-    }
+    },
+    importStudents: async (req, res, next) => {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        try {
+            if (!req.file) {
+                return next(new ErrorHandler(400, "No file uploaded"));
+            }
+
+            // Validate file type and size
+            if (!isValidFileType(req.file)) {
+                return next(new ErrorHandler(400, "Invalid file type. Only CSV and Excel files are allowed"));
+            }
+            if (!isValidFileSize(req.file)) {
+                return next(new ErrorHandler(400, "File size exceeds limit"));
+            }
+
+            // Parse file content based on type
+            let students;
+            if (req.file.mimetype === 'text/csv') {
+                students = parseCSV(req.file.buffer);
+            } else {
+                students = parseExcel(req.file.buffer);
+            }
+
+            const schoolCode = req.school.schoolCode;
+            const results = {
+                successful: [],
+                failed: []
+            };
+
+            // Process each student
+            for (const studentData of students) {
+                try {
+                    // Validate student data
+                    const validation = validateStudentData(studentData);
+                    if (!validation.isValid) {
+                        results.failed.push({
+                            studentId: studentData.studentId,
+                            errors: validation.errors
+                        });
+                        continue;
+                    }
+
+                    // Check for existing student
+                    const existingStudent = await Student.findOne({
+                        $or: [{ email: studentData.email }, { studentId: studentData.studentId }],
+                        schoolCode
+                    }).session(session);
+
+                    if (existingStudent) {
+                        results.failed.push({
+                            studentId: studentData.studentId,
+                            errors: ['Student with this email or ID already exists']
+                        });
+                        continue;
+                    }
+
+                    // Validate class
+                    const studentClass = await Class.findOne({
+                        _id: studentData.classId,
+                        schoolCode
+                    }).session(session);
+
+                    if (!studentClass) {
+                        results.failed.push({
+                            studentId: studentData.studentId,
+                            errors: ['Invalid class ID']
+                        });
+                        continue;
+                    }
+
+                    // Create student
+                    const password = generatePassword();
+                    const hashedPassword = await bcrypt.hash(password, parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 8);
+
+                    const newStudent = new Student({
+                        ...studentData,
+                        password: hashedPassword,
+                        role: 'student',
+                        schoolCode
+                    });
+
+                    // Update class roster
+                    studentClass.students.push(newStudent._id);
+                    await studentClass.save({ session });
+                    await newStudent.save({ session });
+
+                    // Add to class chat room
+                    if (studentClass.chatRoomId) {
+                        const room = await Room.findById(studentClass.chatRoomId);
+                        if (room) {
+                            await room.addMember(newStudent._id, 'student');
+                        }
+                    }
+
+                    // Create user account
+                    const newUser = new User({
+                        _id: newStudent._id,
+                        name: studentData.name,
+                        email: studentData.email,
+                        password: hashedPassword,
+                        role: 'student',
+                        schoolCode
+                    });
+                    await newUser.save({ session });
+
+                    // Send welcome email
+                    await sendEmailSchool(studentData.email, schoolCode, password, "Student Added");
+
+                    results.successful.push({
+                        studentId: studentData.studentId,
+                        name: studentData.name
+                    });
+                } catch (error) {
+                    results.failed.push({
+                        studentId: studentData.studentId,
+                        errors: [error.message]
+                    });
+                }
+            }
+
+            await session.commitTransaction();
+            res.status(201).json({
+                success: true,
+                message: "Bulk student import completed",
+                data: results
+            });
+        } catch (err) {
+            await session.abortTransaction();
+            next(err);
+        } finally {
+            session.endSession();
+        }
+    },
+    importTeachers: async (req, res, next) => {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        try {
+            if (!req.file) {
+                return next(new ErrorHandler(400, "No file uploaded"));
+            }
+
+            // Validate file type and size
+            if (!isValidFileType(req.file)) {
+                return next(new ErrorHandler(400, "Invalid file type. Only CSV and Excel files are allowed"));
+            }
+            if (!isValidFileSize(req.file)) {
+                return next(new ErrorHandler(400, "File size exceeds limit"));
+            }
+
+            // Parse file content based on type
+            let teachers;
+            if (req.file.mimetype === 'text/csv') {
+                teachers = parseCSV(req.file.buffer);
+            } else {
+                teachers = parseExcel(req.file.buffer);
+            }
+
+            const schoolCode = req.school.schoolCode;
+            const results = {
+                successful: [],
+                failed: []
+            };
+
+            // Process each teacher
+            for (const teacherData of teachers) {
+                try {
+                    // Validate teacher data
+                    const validation = validateTeacherData(teacherData);
+                    if (!validation.isValid) {
+                        results.failed.push({
+                            teacherId: teacherData.teacherId,
+                            errors: validation.errors
+                        });
+                        continue;
+                    }
+
+                    // Check for existing teacher
+                    const existingTeacher = await Teacher.findOne({
+                        $or: [{ email: teacherData.email }, { teacherId: teacherData.teacherId }],
+                        schoolCode
+                    }).session(session);
+
+                    if (existingTeacher) {
+                        results.failed.push({
+                            teacherId: teacherData.teacherId,
+                            errors: ['Teacher with this email or ID already exists']
+                        });
+                        continue;
+                    }
+
+                    // Create teacher
+                    const password = generatePassword();
+                    const hashedPassword = await bcrypt.hash(password, parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 8);
+
+                    const newTeacher = new Teacher({
+                        ...teacherData,
+                        password: hashedPassword,
+                        role: 'teacher',
+                        schoolCode
+                    });
+
+                    await newTeacher.save({ session });
+
+                    // Create user account
+                    const newUser = new User({
+                        _id: newTeacher._id,
+                        name: teacherData.name,
+                        email: teacherData.email,
+                        password: hashedPassword,
+                        role: 'teacher',
+                        schoolCode
+                    });
+                    await newUser.save({ session });
+
+                    // Send welcome email
+                    await sendEmailSchool(teacherData.email, schoolCode, password, "Teacher Added");
+
+                    results.successful.push({
+                        teacherId: teacherData.teacherId,
+                        name: teacherData.name
+                    });
+                } catch (error) {
+                    results.failed.push({
+                        teacherId: teacherData.teacherId,
+                        errors: [error.message]
+                    });
+                }
+            }
+
+            await session.commitTransaction();
+            res.status(201).json({
+                success: true,
+                message: "Bulk teacher import completed",
+                data: results
+            });
+        } catch (err) {
+            await session.abortTransaction();
+            next(err);
+        } finally {
+            session.endSession();
+        }
+    },
+
+    createTeacherTimeTable: async (req, res, next) => {
+        try {
+            const teacherId = req.body.teacherId;
+            if (!teacherId) {
+                return res.json({ success: false, message: 'TeacherId is required' });
+            }
+            const teacher = await Teacher.findOne({ teacherId });
+            if(!teacher){
+                return res.json({ success: false, message: 'Teacher not found' });
+            }
+            const { day, lectures } = req.body.timeTable[0];
+            if (!day || !lectures) {
+                return res.json({ success: false, message: 'Please fill all the fields to create a timetable' });
+            }
+            var timeTable = [];
+            for (let i = 0; i < req.body.timeTable.length; i++) {
+                const newTimeTable = new TimetableSchema({
+                    day: req.body.timeTable[i].day,
+                    lectures: req.body.timeTable[i].lectures
+                });
+                await newTimeTable.save();
+                timeTable.push(newTimeTable);
+            }
+            teacher.timetable = timeTable;
+            await teacher.save();
+            res.json({ success: true, message: 'Timetable created successfully', data: timeTable });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    createClassTimeTable:async (req, res, next) => {
+        try {
+            const classId = req.body.teacherId;
+            if (!classId) {
+                return res.json({ success: false, message: 'classId is required' });
+            }
+            const _class = await Class.findOne({ classId });
+            if(!_class){
+                return res.json({ success: false, message: 'Class not found' });
+            }
+            const { day, lectures } = req.body.timeTable[0];
+            if (!day || !lectures) {
+                return res.json({ success: false, message: 'Please fill all the fields to create a timetable' });
+            }
+            var timeTable = [];
+            for (let i = 0; i < req.body.timeTable.length; i++) {
+                const newTimeTable = new TimetableSchema({
+                    day: req.body.timeTable[i].day,
+                    lectures: req.body.timeTable[i].lectures
+                });
+                await newTimeTable.save();
+                timeTable.push(newTimeTable);
+            }
+            _class.timetable = timeTable;
+            await _class.save();
+            res.json({ success: true, message: 'Timetable created successfully', data: timeTable });
+        } catch (err) {
+            next(err);
+        }
+    },
 };
 
 module.exports = schoolCtrl;

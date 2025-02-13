@@ -15,6 +15,9 @@ const classSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    teachingClasses:{
+        type: [mongoose.Schema.Types.ObjectId],
+    },
     /** 
      * @description The teacher assigned as the class teacher. This field is optional and can be
      * set later or left unassigned.

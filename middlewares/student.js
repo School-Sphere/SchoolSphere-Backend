@@ -3,6 +3,7 @@ const { ErrorHandler } = require("./error");
 const Student = require("../models/student_model");
 
 const studentAuth = async (req, res, next) => {
+    console.log("studentAuth");
     try {
         let token;
         if (req.headers["authorization"]) {
@@ -18,8 +19,9 @@ const studentAuth = async (req, res, next) => {
         }
 
         token = token.replace(/^Bearer\s+/, "");
+        console.log(token);
 
-        jwt.verify(token, process.env.USER, async (err, payload) => {
+        jwt.verify(token, process.env.SIGN, async (err, payload) => {
             if (err) {
                 return next(new ErrorHandler(401, "Invalid Token"));
             }
@@ -33,10 +35,9 @@ const studentAuth = async (req, res, next) => {
                 return next(new ErrorHandler(400, "Failed to find student from token"));
             }
             req.student = student;
-
             next();
         });
-    } 
+    }
     catch (err) {
         next(err);
     }

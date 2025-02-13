@@ -1,0 +1,7 @@
+Type,Name,Email,ID,Class,Section,Gender,Date of Birth,Blood Group,Religion,Date of Admission,Father Name,Mother Name,Parent Email,Parent Contact,Father Occupation,Address,Profile Picture
+Teacher,John Doe,john.doe@example.com,T001,,,,,,,,,,,,,,,
+Teacher,Jane Smith,jane.smith@example.com,T002,,,,,,,,,,,,,,,
+Class,,,,Class 10,A,,,,,,,,,,,,,
+Class,,,,Class 9,B,,,,,,,,,,,,,
+Student,Michael Brown,michael.brown@example.com,S001,Class 10,A,Male,2008-05-10,O+,,2023-01-15,David Brown,Susan Brown,parent.brown@example.com,+123456789,Father Occupation Here,123 Main St,profile1.jpg
+Student,Sarah Lee,sarah.lee@example.com,S002,Class 9,B,Female,2009-08-21,A+,Christianity,2023-01-15,Robert Lee,Anna Lee,parent.lee@example.com,+987654321,Father Occupation Here,456 Elm St,profile2.jpg

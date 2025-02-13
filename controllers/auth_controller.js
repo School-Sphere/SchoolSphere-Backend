@@ -6,7 +6,7 @@ const { ErrorHandler } = require("../middlewares/error");
 const { passwordSchema } = require("../utils/validator");
 const sendmail = require("../utils/mailer");
 const Student = require("../models/student_model");
-const UserModel = require('../models/user_model'); 
+const UserModel = require('../models/user_model');
 
 require("dotenv").config();
 
@@ -25,7 +25,7 @@ const authCtrl = {
             const payload = {
                 id: student._id,
             };
-            const token = jwt.sign(payload, process.env.USER);
+            const token = jwt.sign(payload, process.env.SIGN);
             res.json({
                 success: true,
                 message: "User signed successfully",
@@ -37,7 +37,7 @@ const authCtrl = {
                     schoolCode
                 },
             });
-        } 
+        }
         catch (e) {
             next(e);
         }
@@ -54,7 +54,7 @@ const authCtrl = {
             let existingOtp = await Otp.findOne({ email });
             if (existingOtp) {
                 await existingOtp.updateOne({ otp, createdAt: new Date() });
-            } 
+            }
             else {
                 let newOtp = new Otp({
                     email,
@@ -67,7 +67,7 @@ const authCtrl = {
                 success: true,
                 message: "otp is send to your registered email",
             });
-        } 
+        }
         catch (e) {
             next(e);
         }
@@ -98,12 +98,12 @@ const authCtrl = {
                     token,
                 },
             });
-        } 
+        }
         catch (e) {
             next(e);
         }
     },
-    
+
     resendOtpStudent: async (req, res, next) => {
         try {
             const { email, schoolCode } = req.body;
@@ -131,12 +131,12 @@ const authCtrl = {
                 success: true,
                 message: "New OTP has been sent to your registered email",
             });
-        } 
+        }
         catch (e) {
             next(e);
         }
     },
-    
+
     changePasswordStudent: async (req, res, next) => {
         try {
             const result = await passwordSchema.validateAsync(req.body);
@@ -158,7 +158,7 @@ const authCtrl = {
                 success: true,
                 message: "Password has been changed successfully",
             });
-        } 
+        }
         catch (e) {
             next(e);
         }
@@ -178,7 +178,7 @@ const authCtrl = {
             const payload = {
                 id: teacher._id,
             };
-            const token = jwt.sign(payload, process.env.USER);
+            const token = jwt.sign(payload, process.env.SIGN);
             res.json({
                 success: true,
                 message: "User signed successfully",
@@ -190,7 +190,7 @@ const authCtrl = {
                     schoolCode
                 },
             });
-        } 
+        }
         catch (e) {
             next(e);
         }
@@ -207,7 +207,7 @@ const authCtrl = {
             let existingOtp = await Otp.findOne({ email });
             if (existingOtp) {
                 await existingOtp.updateOne({ otp, createdAt: new Date() });
-            } 
+            }
             else {
                 let newOtp = new Otp({
                     email,
@@ -220,7 +220,7 @@ const authCtrl = {
                 success: true,
                 message: "otp is send to your registered email",
             });
-        } 
+        }
         catch (e) {
             next(e);
         }
@@ -251,12 +251,12 @@ const authCtrl = {
                     token,
                 },
             });
-        } 
+        }
         catch (e) {
             next(e);
         }
     },
-    
+
     resendOtpTeacher: async (req, res, next) => {
         try {
             const { email, schoolCode } = req.body;
@@ -285,12 +285,12 @@ const authCtrl = {
                 success: true,
                 message: "New OTP has been sent to your registered email",
             });
-        } 
+        }
         catch (e) {
             next(e);
         }
     },
-    
+
     changePasswordTeacher: async (req, res, next) => {
         try {
             const result = await passwordSchema.validateAsync(req.body);
@@ -312,7 +312,7 @@ const authCtrl = {
                 success: true,
                 message: "Password has been changed successfully",
             });
-        } 
+        }
         catch (e) {
             next(e);
         }
@@ -321,7 +321,7 @@ const authCtrl = {
     getUser: async (req, res, next) => {
         try {
             const token = req.headers.authorization.split(' ')[1];
-            const decoded = jwt.verify(token, process.env.USER);
+            const decoded = jwt.verify(token, process.env.SIGN);
             console.log(decoded);
             const user = await UserModel.findById(decoded.id);
             if (!user) {
