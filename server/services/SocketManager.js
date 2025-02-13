@@ -100,6 +100,15 @@ class SocketManager {
 
     setupMessageHandlers(socket) {
         socket.on(EVENTS.GROUP_MESSAGE, async (data) => {
+            console.log('[Socket] Received group message:', {
+                from: {
+                    userId: socket.user?._id,
+                    name: socket.user?.name,
+                    role: socket.user?.role
+                },
+                content: data.content,
+                type: data.type
+            });
             try {
                 const { roomId, content, type = 'TEXT' } = data;
 
