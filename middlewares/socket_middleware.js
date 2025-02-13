@@ -26,86 +26,116 @@ const createSocketMiddleware = (options = {}) => {
     blockDuration: RATE_LIMIT_CONFIG.blockDuration
   };
 
-const socketRateLimiter = (socket, next) => {
-  const clientId = socket.handshake.auth.token || socket.id;
-  const now = Date.now();
-  
-  if (!rateLimiter.has(clientId)) {
-    rateLimiter.set(clientId, {
-      count: 1,
-      firstRequest: now
-    });
-    return next();
-  }
+  const socketRateLimiter = (socket, next) => {
+    const clientId = socket.handshake.auth.token || socket.id;
+    const now = Date.now();
 
-  const clientData = rateLimiter.get(clientId);
-  
-  if (now - clientData.firstRequest > rateLimit.windowMs) {
-    clientData.count = 1;
-    clientData.firstRequest = now;
-    return next();
-  }
-
-  if (clientData.count >= rateLimit.maxRequests) {
-    const error = createChatError(
-      ERRORS.AUTH.code,
-      ERRORS.AUTH.RATE_LIMIT_EXCEEDED
-    );
-    return next(error);
-  }
-
-  clientData.count++;
-  next();
-};
-
-const checkPermission = (socket, eventName) => {
-  const { role } = socket;
-  const event = EVENTS[eventName];
-  return authConfig.roles[role] && authConfig.roles[role][event];
-};
-
-const socketAuth = async (socket, next) => {
-  try {
-    const token = socket.handshake.auth.token;
-    
-    if (!token) {
-      throw createChatError(ERRORS.AUTH.code, ERRORS.AUTH.NO_TOKEN);
+    if (!rateLimiter.has(clientId)) {
+      rateLimiter.set(clientId, {
+        count: 1,
+        firstRequest: now
+      });
+      return next();
     }
 
-    const cleanToken = token.replace(/^Bearer\s+/, '');
+    const clientData = rateLimiter.get(clientId);
 
-    jwt.verify(cleanToken, authConfig.jwt.secret, {
-      ...authConfig.tokenVerification,
-    }, async (err, payload) => {
-      if (err) {
-        throw createChatError(ERRORS.AUTH.code, ERRORS.AUTH.INVALID_TOKEN);
+    if (now - clientData.firstRequest > rateLimit.windowMs) {
+      clientData.count = 1;
+      clientData.firstRequest = now;
+      return next();
+    }
+
+    if (clientData.count >= rateLimit.maxRequests) {
+      const error = createChatError(
+        ERRORS.AUTH.code,
+        ERRORS.AUTH.RATE_LIMIT_EXCEEDED
+      );
+      return next(error);
+    }
+
+    clientData.count++;
+    next();
+  };
+
+  const checkPermission = (socket, eventName) => {
+    const { role } = socket;
+    const event = EVENTS[eventName];
+    return authConfig.roles[role] && authConfig.roles[role][event];
+  };
+
+  const socketAuth = async (socket, next) => {
+    try {
+      const token = socket.handshake.auth.token;
+
+      if (!token) {
+        throw createChatError(ERRORS.AUTH.code, ERRORS.AUTH.NO_TOKEN);
       }
 
-      const { id, role } = payload;
-      let user;
+      const cleanToken = token.replace(/^Bearer\s+/, '');
 
-      try {
-        if (role === 'student') {
-          user = await Student.findById(id);
-        } else if (role === 'teacher') {
+      // jwt.verify(cleanToken, authConfig.jwt.secret, {
+      //   // ...authConfig.tokenVerification,
+      // }, async (err, payload) => {
+      //   if (err) {
+      //     throw createChatError(ERRORS.AUTH.code, ERRORS.AUTH.INVALID_TOKEN);
+      //   }
+      console.log(cleanToken);
+      jwt.verify(cleanToken, process.env.SIGN, async (err, payload) => {
+        if (err) {
+          console.error('[Socket Auth] Token verification failed:', {
+            error: err.message,
+            timestamp: new Date().toISOString()
+          });
+          throw createChatError(ERRORS.AUTH.code, ERRORS.AUTH.INVALID_TOKEN);
+        }
+        const { id } = payload;
+
+        try {
+          let user = await Student.findById(id);
+          console.log("user: ", user);
+          if (user) {
+            socket.role = 'Student';
+            socket.user = user;
+            next();
+            return;
+          }
+
           user = await Teacher.findById(id);
-        }
+          if (user) {
+            socket.role = 'Teacher';
+            socket.user = user;
+            next();
+            return;
+          }
 
-        if (!user) {
-          throw createChatError(ERRORS.AUTH.code, ERRORS.AUTH.USER_NOT_FOUND);
-        }
+          if (!user) {
+            console.error('[Socket Auth] User not found:', {
+              userId: id,
+              role,
+              timestamp: new Date().toISOString()
+            });
+            throw createChatError(ERRORS.AUTH.code, ERRORS.AUTH.USER_NOT_FOUND);
+          }
 
-        socket.user = user;
-        socket.role = role;
-        next();
-      } catch (dbError) {
-        throw createChatError(ERRORS.AUTH.code, 'Database operation failed');
-      }
-    });
-  } catch (error) {
-    next(new SocketErrorHandler(ERRORS.AUTH.code, authConfig.errors.auth.unauthorized));
-  }
-};
+          next();
+        } catch (dbError) {
+          console.error('[Socket Auth] Database error:', {
+            error: dbError.message,
+            userId: id,
+            timestamp: new Date().toISOString()
+          });
+          throw createChatError(ERRORS.AUTH.code, 'Database operation failed');
+        }
+      });
+    } catch (error) {
+      console.error('[Socket Auth] Authentication failed:', {
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+      next(new SocketErrorHandler(ERRORS.AUTH.code, authConfig.errors.auth.unauthorized));
+    }
+  };
 
   const validatePayload = (schema) => (packet, next) => {
     const { error } = schema.validate(packet);

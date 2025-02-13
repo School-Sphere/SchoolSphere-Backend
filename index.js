@@ -12,6 +12,7 @@ const {
   studentRouter,
   teacherRouter,
   paymentRouter,
+  chatRouter,
 } = require("./routes");
 
 require("dotenv").config();
@@ -33,8 +34,8 @@ app.use(teacherRouter, errorMiddleware);
 app.use(schoolRouter, errorMiddleware);
 app.use(studentRouter, errorMiddleware);
 app.use(paymentRouter, errorMiddleware);
-
-const PORT = process.env.PORT || 5000;
+app.use(chatRouter, errorMiddleware);
+const PORT = 5000;
 
 const syncAllIndexes = async (models) => {
   try {

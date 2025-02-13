@@ -1,16 +1,16 @@
 // models/roomModel.js
 const mongoose = require('mongoose');
 const { validateRoomAccess, getPaginationParams } = require('../utils/chat_helpers');
+
 const roomSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true,
-    trim: true
+    required: function () { return this.type === 'GROUP'; }
   },
   type: {
     type: String,
-    required: true,
-    enum: ['class', 'private']
+    enum: ['DIRECT', 'GROUP'],
+    required: true
   },
   description: {
     type: String,
@@ -19,15 +19,29 @@ const roomSchema = new mongoose.Schema({
   members: [{
     user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      refPath: 'members.userType',
+      required: true
+    },
+    userType: {
+      type: String,
+      enum: ['Student', 'Teacher'],
       required: true
     },
     role: {
       type: String,
-      enum: ['student', 'teacher'],
-      required: true
+      enum: ['ADMIN', 'MEMBER'],
+      default: 'MEMBER'
     }
   }],
+  lastMessage: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Message'
+  },
+  classId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Class',
+    required: function () { return this.type === 'GROUP'; }
+  },
   lastMessageAt: {
     type: Date,
     default: Date.now
@@ -43,7 +57,19 @@ const roomSchema = new mongoose.Schema({
   schoolCode: {
     type: String,
     required: true
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    refPath: 'createdByType',
+    required: true
+  },
+  createdByType: {
+    type: String,
+    enum: ['Student', 'Teacher', 'School'],
+    required: true
   }
+}, {
+  timestamps: true
 });
 
 // Indexes
@@ -71,7 +97,7 @@ roomSchema.methods.canAccess = async function (userId) {
 
 roomSchema.methods.isTeacher = function (userId) {
   const member = this.members.find(m => m.user.toString() === userId.toString());
-  return member && member.role === 'teacher';
+  return member && member.role === 'Teacher';
 };
 
 // Static methods for room operations
@@ -84,7 +110,7 @@ roomSchema.statics.createClassRoom = async function (name, teacherId = null, sch
   };
 
   if (teacherId) {
-    roomData.members.push({ user: teacherId, role: 'teacher' });
+    roomData.members.push({ user: teacherId, role: 'Teacher' });
   }
 
   return this.create(roomData);
@@ -92,8 +118,8 @@ roomSchema.statics.createClassRoom = async function (name, teacherId = null, sch
 
 //creating private rooms
 roomSchema.statics.createPrivateRoom = async function (members, schoolCode) {
-  const teacher = members.find(m => m.role === 'teacher');
-  const otherUser = members.find(m => m.role !== 'teacher');
+  const teacher = members.find(m => m.role === 'Teacher');
+  const otherUser = members.find(m => m.role !== 'Teacher');
   const roomName = `${teacher.userId}-${otherUser.userId}`;
 
   return this.create({
@@ -113,4 +139,5 @@ roomSchema.statics.getActiveRooms = function (schoolCode, query = {}) {
     .limit(limit);
 };
 
-module.exports = mongoose.model('Room', roomSchema);
+const Room = mongoose.model('Room', roomSchema);
+module.exports = Room;

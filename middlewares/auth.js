@@ -1,9 +1,9 @@
 const jwt = require("jsonwebtoken");
 const { ErrorHandler } = require("./error");
 const Student = require("../models/student_model");
+const Teacher = require("../models/teacher_model");
 
-const studentAuth = async (req, res, next) => {
-    console.log("studentAuth");
+const validateAuth = async (req, res, next) => {
     try {
         let token;
         if (req.headers["authorization"]) {
@@ -19,7 +19,6 @@ const studentAuth = async (req, res, next) => {
         }
 
         token = token.replace(/^Bearer\s+/, "");
-        console.log(token);
 
         jwt.verify(token, process.env.SIGN, async (err, payload) => {
             if (err) {
@@ -27,19 +26,27 @@ const studentAuth = async (req, res, next) => {
             }
 
             const id = payload.id;
-            let student;
 
-            student = await Student.findById({ _id: id });
-
-            if (!student) {
-                return next(new ErrorHandler(400, "Failed to find student from token"));
+            // Try to find user in both collections
+            let user = await Student.findById(id);
+            if (user) {
+                req.student = user;
+                next();
+                return;
             }
-            req.student = student;
-            next();
+
+            user = await Teacher.findById(id);
+            if (user) {
+                req.teacher = user;
+                next();
+                return;
+            }
+
+            return next(new ErrorHandler(400, "User not found"));
         });
-    }
-    catch (err) {
+    } catch (err) {
         next(err);
     }
 };
-module.exports = studentAuth;
+
+module.exports = validateAuth; 
