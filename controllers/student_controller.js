@@ -120,9 +120,8 @@ const studentCtrl = {
             const classId = student.classId;
             const studentClass = await Class.findById(classId);
             const timeTable = studentClass.timetable;
-            const timeTableData = await TimeTable.findById(timeTable);
-            if (!timeTableData) {
-                return next(new ErrorHandler(404, "TimeTable not found"));
+            if(!timeTable) {
+                studentClass.timetable = [];
             }
             res.status(200).json({
                 success: true,
@@ -299,16 +298,7 @@ const studentCtrl = {
                 data: courseMaterials
             });
         } catch (err) {
-            next(err);All
-            Videos
-            Images
-            News
-            Shopping
-            Web
-            Books
-            More
-            Tools
-            
+            next(err);
         }
     }
 };
